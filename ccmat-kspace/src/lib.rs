@@ -222,6 +222,50 @@ pub(crate) enum ExtBravaisClass {
     cI1,
 }
 
+fn extra_std_constrait_hpkot(
+    s: Crystal,
+    syminfo: &SymmetryInfo,
+) -> Result<Crystal, Box<dyn std::error::Error + Send + Sync>> {
+    let (a, b, c, _, _, _) = s.lattice().lattice_params();
+    let a: f64 = a.into();
+    let b: f64 = b.into();
+    let _: f64 = c.into();
+
+    let (positions, species) = (s.positions(), s.species());
+    let nvolume = positions.len();
+
+    match syminfo.bravais_class() {
+        BravaisClass::oF => {
+            // Restrictions on basis vector lengths to obtain a unique definition of the crystallographic
+            // conventional cell can be identified based in Table 2.2.6.1 of the ITA [16]. With the
+            // exception of side-face centered cells,a < b, a shortest, or a < b < c is imposed if the
+            // "number of distinct projections” in Table 2.2.6.1 of the ITA is three, two, or one, respectively.
+            if a > b {
+                let tp = matrix_3x3![
+                    0, 1, 0;
+                    1, 0, 0;
+                    0, 0, 1;
+                ];
+
+                let mut sites: Vec<Site> = Vec::with_capacity(positions.len() / nvolume);
+                let new_lattice = s.lattice().change_basis_by(&tp);
+                for (position, specie) in positions.iter().zip(species.iter()) {
+                    let new_position = position.change_basis_by(&tp)?;
+                    sites.push(Site::new(new_position, specie.atomic_number()));
+                }
+                let crystal = CrystalBuilder::new()
+                    .with_lattice(&new_lattice)
+                    .with_sites(&sites)
+                    .build()?;
+
+                return Ok(crystal);
+            }
+            Ok(s)
+        }
+        _ => Ok(s),
+    }
+}
+
 /// # Errors
 /// ??
 ///
@@ -234,8 +278,9 @@ pub fn find_path(
     threshold: f64,
 ) -> Result<(&'static KpathInfo, KpathEval, Crystal), Box<dyn std::error::Error + Send + Sync>> {
     let syminfo = analyze_symmetry(crystal, symprec)?;
-    let structure_std = syminfo.standardize_structure();
     let spg_number = syminfo.spg_number();
+    let structure_std = syminfo.standardize_structure();
+    let structure_std = extra_std_constrait_hpkot(structure_std, &syminfo)?;
 
     let (structure_priv, _, _) = find_primitive_hpkot(&structure_std, &syminfo, symprec)?;
     let lattice_params = structure_priv.lattice().lattice_params();
@@ -713,7 +758,6 @@ mod tests {
         assert!(logs_contain("tI lattice, but a ~ c"));
     }
 
-    #[ignore = "https://github.com/spglib/moyo/issues/191"]
     #[traced_test]
     #[test]
     fn oF1_warn() {
@@ -741,7 +785,7 @@ mod tests {
 
         let _ = find_path(&s, 1e-5, 1e-7);
 
-        assert!(logs_contain("oF lattice, but 1/c^2 ~ 1/a^2 + 1/b^2"));
+        assert!(logs_contain("oF lattice, but 1/a^2 ~ 1/b^2 + 1/c^2"));
     }
 
     #[traced_test]
@@ -817,7 +861,9 @@ mod tests {
 
         let _ = find_path(&s, 1e-5, 1e-7);
 
-        assert!(logs_contain("oI lattice, but the two longest vectors B and C have almost the same length"));
+        assert!(logs_contain(
+            "oI lattice, but the two longest vectors B and C have almost the same length"
+        ));
     }
 
     #[traced_test]
