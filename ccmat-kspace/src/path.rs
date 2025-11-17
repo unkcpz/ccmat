@@ -187,7 +187,6 @@ macro_rules! kparams {
 }
 
 /// ```ignore
-///
 /// static PATH_hR1: &[(HighSymmetryPoint, HighSymmetryPoint)] = kpath![
 ///     GAMMA T,
 ///     T H_2,
