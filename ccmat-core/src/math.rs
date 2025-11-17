@@ -21,6 +21,18 @@ impl Matrix3 {
             + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
     }
 
+    // transpose
+    #[must_use]
+    pub fn t(&self) -> Self {
+        let m = self.0;
+        let inner = [
+            [m[0][0], m[1][0], m[2][0]],
+            [m[0][1], m[1][1], m[2][1]],
+            [m[0][2], m[1][2], m[2][2]],
+        ];
+        Matrix3(inner)
+    }
+
     #[allow(clippy::many_single_char_names)]
     #[must_use]
     pub fn inv(&self) -> Option<Self> {
@@ -95,6 +107,40 @@ impl Mul<Matrix3> for f64 {
     }
 }
 
+impl Mul<Vector3<f64>> for &Matrix3 {
+    type Output = Vector3<f64>;
+
+    /// Left transformation on a vector
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ccmat_core::matrix_3x3;
+    /// use ccmat_core::math::Vector3;
+    ///
+    /// let rot_mat = matrix_3x3![
+    ///      cos(PI/3.), -sin(PI/3.), 0;
+    ///      sin(PI/3.), cos(PI/3.), 0;
+    ///      0,  0,  1;
+    /// ];
+    ///
+    /// let v: Vector3<f64> = Vector3([1., 0., 0.]);
+    /// let new_v = &rot_mat * v;
+    ///
+    /// assert!(new_v[0] - 0.5 < 1e-9);
+    /// assert!(new_v[1] - f64::sqrt(3.)/2. < 1e-9);
+    /// assert!(new_v[2] - 0. < 1e-9);
+    /// ```
+    fn mul(self, rhs: Vector3<f64>) -> Self::Output {
+        let m = self;
+        let p0 = m[0][0] * rhs[0] + m[0][1] * rhs[1] + m[0][2] * rhs[2];
+        let p1 = m[1][0] * rhs[0] + m[1][1] * rhs[1] + m[1][2] * rhs[2];
+        let p2 = m[2][0] * rhs[0] + m[2][1] * rhs[1] + m[2][2] * rhs[2];
+
+        Vector3([p0, p1, p2])
+    }
+}
+
 pub type TransformationMatrix = Matrix3;
 pub type RotationMatrix = Matrix3;
 
@@ -144,7 +190,7 @@ impl<T> Index<usize> for Vector3<T> {
 impl Mul<Vector3<f64>> for f64 {
     type Output = Vector3<f64>;
 
-    /// Scalar multiply for a `Vector3<f64>`
+    /// Scalar multiply (on left) for a `Vector3<f64>`
     ///
     /// # Examples
     ///
@@ -156,6 +202,25 @@ impl Mul<Vector3<f64>> for f64 {
     /// ```
     fn mul(self, rhs: Vector3<f64>) -> Self::Output {
         let v = rhs.map(|x| x * self);
+        Vector3::<f64>(v)
+    }
+}
+
+impl Mul<f64> for Vector3<f64> {
+    type Output = Vector3<f64>;
+
+    /// Scalar multiply (on right) for a `Vector3<f64>`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ccmat_core::math::Vector3;
+    ///
+    /// let vec3 = Vector3::<f64>([2.0, 2.0, 4.0]);
+    /// assert_eq!(vec3 * 0.1, Vector3::<f64>([0.2, 0.2, 0.4]));
+    /// ```
+    fn mul(self, rhs: f64) -> Self::Output {
+        let v = self.map(|x| x * rhs);
         Vector3::<f64>(v)
     }
 }
