@@ -128,7 +128,7 @@ fn find_primitive_hpkot(
 ) -> Result<(Crystal, Matrix3, Vec<usize>), Box<dyn std::error::Error + Send + Sync>> {
     let (tp, inv_tp) = find_p_matrix(syminfo);
 
-    let lattice_priv = standardize_structure.lattice().change_basis_by(&tp);
+    let lattice_priv = standardize_structure.lattice().linear_combine(&tp);
 
     let (positions, species) = (
         standardize_structure.positions_fraction(),
@@ -158,7 +158,7 @@ fn find_primitive_hpkot(
     let mut mapping: Vec<usize> = Vec::with_capacity(positions.len());
     // brute forcely filter sites with duplicate position
     for (position, specie) in positions.iter().zip(species.iter()) {
-        let new_position = position.change_basis_by(&tp)?;
+        let new_position = position.linear_combine(&tp)?;
         if let Some(idx) = find_position(&sites, new_position) {
             // duplicate site
             mapping.push(idx);
@@ -348,8 +348,8 @@ pub fn find_path(
                     .expect("f64::NaN appears in matrix mapping")
             });
             let mt = std::mem::take(&mut matrix_mapping[0].1);
-            let lattice = rlatt_niggli_reduced.reciprocal();
-            let lattice = lattice.change_basis_by(&mt);
+            let lattice = latt_reciprocal_niggli_reduced.reciprocal();
+            let lattice = lattice.linear_combine(&mt);
             let klattice = lattice.reciprocal();
 
             // Make them all-acute or all-obtuse with the additional conditions
@@ -414,7 +414,7 @@ pub fn find_path(
                 }
             };
 
-            let klattice = lattice.change_basis_by(&m3).reciprocal();
+            let klattice = lattice.linear_combine(&m3).reciprocal();
             let (_, _, _, kalpha3, kbeta3, kgamma3) = klattice.lattice_params();
             let (kalpha3, kbeta3, kgamma3): (f64, f64, f64) =
                 (kalpha3.into(), kbeta3.into(), kgamma3.into());
@@ -592,10 +592,10 @@ pub fn find_path(
 )]
 #[cfg(test)]
 mod tests {
-    use ccmat_core::SymmetryExt;
     use ccmat_core::{
-        analyze_symmetry, atomic_number, lattice_angstrom, sites_frac_coord, CrystalBuilder,
+        analyze_symmetry, atomic_number, lattice_angstrom, sites_frac_coord, CrystalBuilder, Site,
     };
+    use ccmat_core::{matrix_3x3, SymmetryExt};
     use tracing_test::traced_test;
 
     use crate::find_path;
@@ -956,6 +956,25 @@ mod tests {
         assert!(!s.is_supercell(1e-5).unwrap());
 
         // FIXME: rotate std cell, rotate the kpath coords
+        let rot_mat = matrix_3x3![
+            -1,  0,  0;
+             0,  cos(0.3), -sin(0.3);
+             0,  sin(0.3), cos(0.3);
+        ];
+        let t_mat = matrix_3x3![
+            1,  0,  0;
+            0,  1,  0;
+            1,  2, -1;
+        ];
+
+        let new_s = s
+            .linear_combine_basis(&t_mat).unwrap()
+            .rotate_basis(&rot_mat)
+            .unwrap();
+
+        let syminfo = analyze_symmetry(&new_s, 1e-5).unwrap();
+        assert_eq!(syminfo.spacegroup_symbol(), "Pm-3m");
+        assert!(!new_s.is_supercell(1e-5).unwrap());
     }
 
     #[test]
@@ -978,6 +997,26 @@ mod tests {
         assert!(!s.is_supercell(1e-5).unwrap());
 
         // FIXME: rotate std cell, rotate the kpath coords
+        let rot_mat = matrix_3x3![
+             cos(0.1), -sin(0.1), 0;
+             sin(0.1), cos(0.1), 0;
+             0,  0,  1;
+        ];
+        // a -> a, b -> b, c -> a + c
+        let t_mat = matrix_3x3![
+            1,  0,  1;
+            0,  1,  0;
+            0,  0,  1;
+        ];
+
+        let new_s = s
+            .linear_combine_basis(&t_mat).unwrap()
+            .rotate_basis(&rot_mat)
+            .unwrap();
+
+        let syminfo = analyze_symmetry(&new_s, 1e-5).unwrap();
+        assert_eq!(syminfo.spacegroup_symbol(), "Fd-3m");
+        assert!(!new_s.is_supercell(1e-5).unwrap());
     }
 
     #[test]
