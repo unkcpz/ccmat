@@ -19,8 +19,11 @@
  *
  */
 
+use std::cmp;
+
 use crate::{
     math::{TransformationMatrix, Vector3},
+    moyo_wrapper::CellBuilder,
     symmetry::niggli_reduce,
 };
 
@@ -878,11 +881,59 @@ impl Crystal {
     }
 }
 
-// pub fn find_primitive_spglib(
-//     crystal: &Crystal,
-// ) -> Result<(Crystal, PMatrix, InvPMatrix), Box<dyn std::error::Error + Sync + Send>> {
-//     todo!()
-// }
+// This can become a symmetry extent trait
+// TODO: this trait can be moved to moyo, as the proposed way of better interface.
+pub trait SymmetryExt {
+    fn lattice(&self) -> [[f64; 3]; 3];
+    fn positions(&self) -> Vec<[f64; 3]>;
+    fn numbers(&self) -> Vec<i32>;
+
+    /// # Errors
+    /// TODO: ???
+    fn is_supercell(&self, symprec: f64) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        let m = self.lattice();
+        let (a, b, c) = (m[0], m[1], m[2]);
+        let lattice = crate::moyo_wrapper::Lattice::new(a, b, c);
+        let positions = self.positions();
+        let numbers = self.numbers();
+
+        let natoms = numbers.len();
+        let cell = CellBuilder::new()
+            .with_lattice(lattice)
+            .with_positions(positions)
+            .with_numbers(numbers)
+            .build();
+        let sym_info = crate::moyo_wrapper::analyze_symmetry(&cell, symprec)?;
+        let cell_priv = sym_info.prim_std_cell();
+        match natoms.cmp(&cell_priv.numbers().len()) {
+            cmp::Ordering::Less => unreachable!("primitive cell cannot have more atoms."),
+            cmp::Ordering::Equal => Ok(false),
+            cmp::Ordering::Greater => Ok(true),
+        }
+    }
+
+    // TODO: this can become the generic interface of moyo symmetry analysis call
+}
+
+impl SymmetryExt for Crystal {
+    fn lattice(&self) -> [[f64; 3]; 3] {
+        let a: [f64; 3] = self.lattice().a().map(f64::from);
+        let b: [f64; 3] = self.lattice().b().map(f64::from);
+        let c: [f64; 3] = self.lattice().c().map(f64::from);
+        [a, b, c]
+    }
+
+    fn positions(&self) -> Vec<[f64; 3]> {
+        self.positions().iter().map(|p| p.map(f64::from)).collect()
+    }
+
+    fn numbers(&self) -> Vec<i32> {
+        self.species()
+            .iter()
+            .map(|s| i32::from(s.atomic_number()))
+            .collect()
+    }
+}
 
 #[cfg(test)]
 mod tests {

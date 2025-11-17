@@ -545,6 +545,7 @@ pub fn find_path(
 )]
 #[cfg(test)]
 mod tests {
+    use ccmat_core::SymmetryExt;
     use ccmat_core::{
         analyze_symmetry, atomic_number, lattice_angstrom, sites_frac_coord, CrystalBuilder,
     };
@@ -881,4 +882,23 @@ mod tests {
     }
 
     // TODO: test on mC and oP for warning messages as well as planed in seekpath
+
+    #[test]
+    fn nonstandard_cubic() {
+        let lattice = lattice_angstrom![(4.0, 0.0, 0.0), (0.0, 4.0, 0.0), (0.0, 0.0, 4.0),];
+
+        let sites = sites_frac_coord![
+            (0.0000000000000000, 0.0000000000000000, 0.0000000000000000), atomic_number!(H);
+        ];
+
+        let s = CrystalBuilder::new()
+            .with_lattice(&lattice)
+            .with_sites(&sites)
+            .build()
+            .unwrap();
+
+        let syminfo = analyze_symmetry(&s, 1e-5).unwrap();
+        assert_eq!(syminfo.spacegroup_symbol(), "Pm-3m");
+        assert!(!s.is_supercell(1e-5).unwrap());
+    }
 }
