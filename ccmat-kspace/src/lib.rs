@@ -900,5 +900,76 @@ mod tests {
         let syminfo = analyze_symmetry(&s, 1e-5).unwrap();
         assert_eq!(syminfo.spacegroup_symbol(), "Pm-3m");
         assert!(!s.is_supercell(1e-5).unwrap());
+
+        // FIXME: rotate std cell, rotate the kpath coords
     }
+
+    #[test]
+    fn nonstandard_fcc() {
+        let lattice = lattice_angstrom![(-3.0, 0.0, 3.0), (0.0, 3.0, 3.0), (-3.0, 3.0, 0.0),];
+
+        let sites = sites_frac_coord![
+            (0.0000000000000000, 0.0000000000000000, 0.0000000000000000), atomic_number!(H);
+            (0.2500000000000000, 0.2500000000000000, 0.2500000000000000), atomic_number!(H);
+        ];
+
+        let s = CrystalBuilder::new()
+            .with_lattice(&lattice)
+            .with_sites(&sites)
+            .build()
+            .unwrap();
+
+        let syminfo = analyze_symmetry(&s, 1e-5).unwrap();
+        assert_eq!(syminfo.spacegroup_symbol(), "Fd-3m");
+        assert!(!s.is_supercell(1e-5).unwrap());
+
+        // FIXME: rotate std cell, rotate the kpath coords
+    }
+
+    #[test]
+    fn nonstandard_tetragonal() {
+        let lattice = lattice_angstrom![(4.0, 0.0, 0.0), (0.0, 4.0, 0.0), (0.0, 0.0, 6.0),];
+
+        let sites = sites_frac_coord![
+            (0.0000000000000000, 0.0000000000000000, 0.0000000000000000), atomic_number!(H);
+            (0.0000000000000000, 0.0000000000000000, 0.2000000000000000), atomic_number!(He);
+        ];
+
+        let s = CrystalBuilder::new()
+            .with_lattice(&lattice)
+            .with_sites(&sites)
+            .build()
+            .unwrap();
+
+        let syminfo = analyze_symmetry(&s, 1e-5).unwrap();
+        assert_eq!(syminfo.spacegroup_symbol(), "P4mm");
+        assert!(!s.is_supercell(1e-5).unwrap());
+
+        // FIXME: rotate std cell, rotate the kpath coords
+    }
+
+    #[test]
+    fn nonstandard_monoclinic() {
+        let lattice = lattice_angstrom![(1.0, 0.0, 0.0), (0.0, 3.0, 0.0), (-2.0, 0.0, 5.0),];
+
+        let sites = sites_frac_coord![
+            (0.0000000000000000, 0.0000000000000000, 0.0000000000000000), atomic_number!(H);
+            (0.1000000000000000, 0.2000000000000000, 0.3000000000000000), atomic_number!(He);
+        ];
+
+        let s = CrystalBuilder::new()
+            .with_lattice(&lattice)
+            .with_sites(&sites)
+            .build()
+            .unwrap();
+
+        let syminfo = analyze_symmetry(&s, 1e-5).unwrap();
+        assert_eq!(syminfo.spacegroup_symbol(), "Pm");
+        assert!(!s.is_supercell(1e-5).unwrap());
+
+        // FIXME: rotate std cell, rotate the kpath coords
+    }
+
+    // TODO: test_nonstandard_cubic_supercell
+    // TODO: test_no_symmetrization
 }
