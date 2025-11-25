@@ -240,7 +240,8 @@ pub struct KpathInfo {
 #[derive(Debug)]
 pub struct KpathEval {
     path: &'static [(HighSymmetryPoint, HighSymmetryPoint)],
-    points: Vec<(
+    // FIXME: make it a property
+    pub points: Vec<(
         &'static HighSymmetryPoint,
         (FracCoord, FracCoord, FracCoord),
     )>,
