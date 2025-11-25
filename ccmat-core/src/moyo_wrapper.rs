@@ -369,6 +369,19 @@ impl SymmetryInfo {
         }
     }
 
+    #[must_use]
+    pub(crate) fn std_rotation(&self) -> [[f64; 3]; 3] {
+        let m = self.inner.std_rotation_matrix;
+        let row0 = m.row(0);
+        let row1 = m.row(1);
+        let row2 = m.row(2);
+        [
+            [row0[0], row0[1], row0[2]],
+            [row1[0], row1[1], row1[2]],
+            [row2[0], row2[1], row2[2]],
+        ]
+    }
+
     /// Primitive Cell
     pub(crate) fn prim_std_cell(&self) -> Cell {
         Cell {

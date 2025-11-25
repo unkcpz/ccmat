@@ -98,6 +98,10 @@ impl SymmetryInfo {
     pub fn standardize_structure(&self) -> Crystal {
         self.inner.std_cell().into()
     }
+
+    pub fn std_rotation(&self) -> Matrix3 {
+        Matrix3(self.inner.std_rotation())
+    }
 }
 
 /// analyze symmetry

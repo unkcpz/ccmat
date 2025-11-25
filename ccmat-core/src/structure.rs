@@ -23,6 +23,7 @@ use std::cmp;
 
 use crate::{
     math::{Matrix3, TransformationMatrix, Vector3},
+    matrix_3x3,
     moyo_wrapper::CellBuilder,
     symmetry::niggli_reduce,
 };
@@ -606,6 +607,41 @@ impl LatticeReciprocal {
         let c_star = Vector3(c_star.map(Angstrom::from));
 
         Lattice::new(a_star, b_star, c_star)
+    }
+
+    #[allow(clippy::many_single_char_names)]
+    #[must_use]
+    pub fn compute_cartesian(&self, v: Vector3<FracCoord>) -> Vector3<InvAngstrom> {
+        let a: Vector3<f64> = self.a.into();
+        let b: Vector3<f64> = self.b.into();
+        let c: Vector3<f64> = self.c.into();
+
+        let (x, y, z): (f64, f64, f64) = (v[0].into(), v[1].into(), v[2].into());
+        let v = x * a + y * b + z * c;
+        v.into()
+    }
+
+    // lattice as matrix in column-wise
+    fn as_matrix(&self) -> Matrix3 {
+        let a = self.a;
+        let b = self.b;
+        let c = self.c;
+
+        matrix_3x3![
+            a[0], b[0], c[0];
+            a[1], b[1], c[1];
+            a[2], b[2], c[2];
+        ]
+    }
+
+    #[must_use]
+    pub fn vec_from_cartesian(&self, v: Vector3<InvAngstrom>) -> Vector3<FracCoord> {
+        let m = self.as_matrix();
+        let m_inv = m.inv().expect("invalid 3D lattice");
+
+        let v: Vector3<f64> = v.into();
+        let v = m_inv * v;
+        v.into()
     }
 
     pub fn lattice_params(&self) -> (InvAngstrom, InvAngstrom, InvAngstrom, Rad, Rad, Rad) {

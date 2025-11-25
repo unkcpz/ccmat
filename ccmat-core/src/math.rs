@@ -1,6 +1,9 @@
 use std::ops::{Add, Deref, Index, Mul};
 
-use crate::structure::{Angstrom, InvAngstrom};
+use crate::{
+    structure::{Angstrom, InvAngstrom},
+    FracCoord,
+};
 pub use ccmat_macros::matrix_3x3;
 
 #[must_use]
@@ -141,6 +144,14 @@ impl Mul<Vector3<f64>> for &Matrix3 {
     }
 }
 
+impl Mul<Vector3<f64>> for Matrix3 {
+    type Output = Vector3<f64>;
+
+    fn mul(self, rhs: Vector3<f64>) -> Self::Output {
+        (&self).mul(rhs)
+    }
+}
+
 pub type TransformationMatrix = Matrix3;
 pub type RotationMatrix = Matrix3;
 
@@ -234,6 +245,18 @@ impl From<Vector3<Angstrom>> for Vector3<f64> {
 impl From<Vector3<f64>> for Vector3<Angstrom> {
     fn from(v: Vector3<f64>) -> Self {
         Vector3::<Angstrom>(v.map(Angstrom::from))
+    }
+}
+
+impl From<Vector3<FracCoord>> for Vector3<f64> {
+    fn from(v: Vector3<FracCoord>) -> Self {
+        Vector3::<f64>(v.map(f64::from))
+    }
+}
+
+impl From<Vector3<f64>> for Vector3<FracCoord> {
+    fn from(v: Vector3<f64>) -> Self {
+        Vector3::<FracCoord>(v.map(FracCoord::from))
     }
 }
 
