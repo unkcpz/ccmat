@@ -532,6 +532,8 @@ pub fn find_path(
         BravaisClass::cI => ExtBravaisClass::cI1,
     };
 
+    dbg!(&ext_bravais);
+
     let path_info = path::lookup(&ext_bravais);
     let path_eval = path::eval(path_info, lattice_params)?;
 
@@ -545,6 +547,7 @@ pub fn find_path(
 )]
 #[cfg(test)]
 mod tests {
+    use ccmat_core::math::Vector3;
     use ccmat_core::{
         analyze_symmetry, atomic_number, lattice_angstrom, sites_frac_coord, CrystalBuilder, Site,
     };
@@ -957,14 +960,41 @@ mod tests {
             0,  0,  1;
         ];
 
-        let new_s = s
+        let s = s
             .linear_combine_basis(&t_mat).unwrap()
             .rotate_basis(&rot_mat)
             .unwrap();
 
-        let syminfo = analyze_symmetry(&new_s, 1e-5).unwrap();
+        dbg!(&s);
+
+        let syminfo = analyze_symmetry(&s, 1e-5).unwrap();
         assert_eq!(syminfo.spacegroup_symbol(), "Fd-3m");
-        assert!(!new_s.is_supercell(1e-5).unwrap());
+        assert!(!s.is_supercell(1e-5).unwrap());
+        let std_s = syminfo.standardize_structure();
+        dbg!(std_s);
+        dbg!(syminfo.bravais_class());
+
+        // XXX: find_path not need to return kinfo, it is just a lookup result,
+        let (_, keval, s_priv) = find_path(&s, 1e-5, 1e-7).unwrap();
+        let rot_m = syminfo.std_rotation();
+        // dbg!(rot_m);
+        // dbg!(&keval); 
+        //
+        // dbg!(&s_priv);
+        // dbg!(syminfo.standardize_structure());
+
+        let klatt_orig = s.lattice().reciprocal();
+        let klatt_std = s_priv.lattice().reciprocal();
+        
+        let v = keval.points[6].1;
+        let v = Vector3([v.0, v.1, v.2]);
+        // let res = klatt_orig.vec_from_cartesian(klatt_std.compute_cartesian(v));
+        let res: Vector3<f64> = klatt_std.compute_cartesian(v).into();
+        // dbg!(res);
+        // dbg!(&rot_m);
+        let res = rot_m * res;
+        let res = klatt_orig.vec_from_cartesian(res.into());
+        // dbg!(res);
     }
 
     #[test]
