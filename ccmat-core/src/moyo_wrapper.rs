@@ -1,4 +1,6 @@
 /* Experiments (wishlist) on moyo APIs
+*
+ * TODO: make this ccmat_moyo crate to tidy up interface call of other sub-crates.
  *
  * Everything in this moyo_wrapper mod are expected to go to official moyo crate.
  * In experiment, this mod should only depend on official moyo crate.
@@ -339,6 +341,19 @@ impl SymmetryInfo {
         Cow::Borrowed(hall_symbol.hall_symbol)
     }
 
+    /// Spage group symbol (aka "Hermann–Mauguin (International) symbol")
+    /// in short notation (e.g., "Fd-3m" for space group 227).
+    #[must_use]
+    pub(crate) fn spagegroup_symbol(&self) -> Cow<'_, str> {
+        // the international symbol given by moyo can be "P m -3 m", I remove spaces.
+        let s = &self.inner.hm_symbol;
+        if s.contains(char::is_whitespace) {
+            Cow::Owned(s.chars().filter(|c| !c.is_whitespace()).collect())
+        } else {
+            Cow::Borrowed(s)
+        }
+    }
+
     /// Check if contain inversion symmetry.
     #[must_use]
     pub(crate) fn has_inversion(&self) -> bool {
@@ -351,6 +366,26 @@ impl SymmetryInfo {
         Cell {
             // clone because std_cell can be not the original cell.
             inner: self.inner.std_cell.clone(),
+        }
+    }
+
+    #[must_use]
+    pub(crate) fn std_rotation(&self) -> [[f64; 3]; 3] {
+        let m = self.inner.std_rotation_matrix;
+        let row0 = m.row(0);
+        let row1 = m.row(1);
+        let row2 = m.row(2);
+        [
+            [row0[0], row0[1], row0[2]],
+            [row1[0], row1[1], row1[2]],
+            [row2[0], row2[1], row2[2]],
+        ]
+    }
+
+    /// Primitive Cell
+    pub(crate) fn prim_std_cell(&self) -> Cell {
+        Cell {
+            inner: self.inner.prim_std_cell.clone(),
         }
     }
 }

@@ -19,8 +19,12 @@
  *
  */
 
+use std::cmp;
+
 use crate::{
-    math::{TransformationMatrix, Vector3},
+    math::{Matrix3, TransformationMatrix, Vector3},
+    matrix_3x3,
+    moyo_wrapper::CellBuilder,
     symmetry::niggli_reduce,
 };
 
@@ -88,15 +92,19 @@ impl From<f64> for FracCoord {
     }
 }
 
-impl Vector3<FracCoord> {
-    /// m is the matrix transform the coordinates, use inv(m) to transform the vector.
+type PositionFracCoord = Vector3<FracCoord>;
+
+impl PositionFracCoord {
+    /// New vertor after the basis linear combination.
+    ///
+    /// m is the matrix transform the coordinates on the basis, use inv(m) to transform the vector.
     ///
     /// # Errors
     ///
     /// error if the det of the transformation matrix is 0, non-invertible or singular.
-    pub fn change_basis_by(
+    pub fn linear_combine(
         &self,
-        m: &TransformationMatrix,
+        m: &Matrix3,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let x: f64 = self[0].into();
         let y: f64 = self[1].into();
@@ -411,22 +419,41 @@ impl Lattice {
         Ok((latt, matrix))
     }
 
+    // TODO: linear combination and rotate do not cover all transfarmation
+    // the complete decomposition, should be svd or polar decomposition.
+    // Read more to find proper APIs.
+
     /// Lattice is represented in the new basis
     ///
-    /// (a', b', c') = (a, b, c) * { m00 m01 m02 }
-    ///                            { m10 m11 m12 }
-    ///                            { m20 m21 m22 }
+    /// (a', b', c') = (a, b, c) * M
     ///
-    /// a' = m00 * a + m10 * b + m20 * c
-    /// b' = m01 * a + m11 * b + m21 * c
-    /// c' = m02 * a + m12 * b + m22 * c
+    /// a' = a * m00 + b * m10 + c * m20
+    /// b' = a * m01 + b * m11 + c * m21
+    /// c' = a * m02 + b * m12 + c * m22
     #[must_use]
-    pub fn change_basis_by(&self, m: &TransformationMatrix) -> Self {
+    pub fn linear_combine(&self, m: &Matrix3) -> Self {
         let (a, b, c): (Vector3<f64>, Vector3<f64>, Vector3<f64>) =
             (self.a.into(), self.b.into(), self.c.into());
-        let ap = m[0][0] * a + m[1][0] * b + m[2][0] * c;
-        let bp = m[0][1] * a + m[1][1] * b + m[2][1] * c;
-        let cp = m[0][2] * a + m[1][2] * b + m[2][2] * c;
+        let ap = a * m[0][0] + b * m[1][0] + c * m[2][0];
+        let bp = a * m[0][1] + b * m[1][1] + c * m[2][1];
+        let cp = a * m[0][2] + b * m[1][2] + c * m[2][2];
+
+        Self::new(ap.into(), bp.into(), cp.into())
+    }
+
+    /// Lattice is represented in the new basis by applying transform matrix
+    ///
+    /// a' = M * a
+    /// b' = M * b
+    /// c' = M * c
+    #[must_use]
+    pub fn transform(&self, m: &Matrix3) -> Self {
+        let (a, b, c): (Vector3<f64>, Vector3<f64>, Vector3<f64>) =
+            (self.a.into(), self.b.into(), self.c.into());
+
+        let ap = m * a;
+        let bp = m * b;
+        let cp = m * c;
 
         Self::new(ap.into(), bp.into(), cp.into())
     }
@@ -582,6 +609,41 @@ impl LatticeReciprocal {
         Lattice::new(a_star, b_star, c_star)
     }
 
+    #[allow(clippy::many_single_char_names)]
+    #[must_use]
+    pub fn compute_cartesian(&self, v: Vector3<FracCoord>) -> Vector3<InvAngstrom> {
+        let a: Vector3<f64> = self.a.into();
+        let b: Vector3<f64> = self.b.into();
+        let c: Vector3<f64> = self.c.into();
+
+        let (x, y, z): (f64, f64, f64) = (v[0].into(), v[1].into(), v[2].into());
+        let v = x * a + y * b + z * c;
+        v.into()
+    }
+
+    // lattice as matrix in column-wise
+    fn as_matrix(&self) -> Matrix3 {
+        let a = self.a;
+        let b = self.b;
+        let c = self.c;
+
+        matrix_3x3![
+            a[0], b[0], c[0];
+            a[1], b[1], c[1];
+            a[2], b[2], c[2];
+        ]
+    }
+
+    #[must_use]
+    pub fn vec_from_cartesian(&self, v: Vector3<InvAngstrom>) -> Vector3<FracCoord> {
+        let m = self.as_matrix();
+        let m_inv = m.inv().expect("invalid 3D lattice");
+
+        let v: Vector3<f64> = v.into();
+        let v = m_inv * v;
+        v.into()
+    }
+
     pub fn lattice_params(&self) -> (InvAngstrom, InvAngstrom, InvAngstrom, Rad, Rad, Rad) {
         let va = self.a.map(f64::from);
         let length_a = f64::sqrt(va[0] * va[0] + va[1] * va[1] + va[2] * va[2]);
@@ -625,7 +687,7 @@ impl LatticeReciprocal {
     /// b' = m01 * a + m11 * b + m21 * c
     /// c' = m02 * a + m12 * b + m22 * c
     #[must_use]
-    pub fn change_basis_by(&self, m: &TransformationMatrix) -> Self {
+    pub fn linear_combine(&self, m: &TransformationMatrix) -> Self {
         let (a, b, c): (Vector3<f64>, Vector3<f64>, Vector3<f64>) =
             (self.a.into(), self.b.into(), self.c.into());
         let ap = m[0][0] * a + m[1][0] * b + m[2][0] * c;
@@ -865,6 +927,15 @@ impl Crystal {
         &self.species
     }
 
+    pub fn sites(&self) -> Vec<Site> {
+        let mut sites = vec![];
+        for (position, specie) in self.positions().into_iter().zip(self.species().iter()) {
+            let atomic_number = specie.atomic_number();
+            sites.push(Site::new(position, atomic_number));
+        }
+        sites
+    }
+
     #[must_use]
     pub fn volume(&self) -> Volume {
         self.lattice.volume()
@@ -876,13 +947,101 @@ impl Crystal {
             *p = Vector3(p_);
         }
     }
+
+    /// # Errors
+    /// ???
+    /// TODO: can I avoid new crystal data allocation.
+    pub fn linear_combine_basis(
+        &self,
+        m: &Matrix3,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let new_lattice = self.lattice().linear_combine(m);
+
+        let positions = self.positions();
+        let species = self.species();
+        let mut new_sites = vec![];
+        for (position, specie) in positions.iter().zip(species.iter()) {
+            let new_position = position.linear_combine(m)?;
+            let atomic_number = specie.atomic_number();
+            new_sites.push(Site::new(new_position, atomic_number));
+        }
+        let new_s = CrystalBuilder::new()
+            .with_lattice(&new_lattice)
+            .with_sites(&new_sites)
+            .build()?;
+        Ok(new_s)
+    }
+
+    /// # Errors
+    /// ???
+    /// TODO: can I avoid new crystal data allocation.
+    pub fn rotate_basis(
+        &self,
+        m: &Matrix3,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let new_lattice = self.lattice().transform(m);
+
+        let new_s = CrystalBuilder::new()
+            .with_lattice(&new_lattice)
+            .with_sites(&self.sites())
+            .build()?;
+        Ok(new_s)
+    }
 }
 
-// pub fn find_primitive_spglib(
-//     crystal: &Crystal,
-// ) -> Result<(Crystal, PMatrix, InvPMatrix), Box<dyn std::error::Error + Sync + Send>> {
-//     todo!()
-// }
+// This can become a symmetry extent trait
+// TODO: this trait can be moved to moyo, as the proposed way of better interface.
+pub trait SymmetryExt {
+    fn lattice(&self) -> [[f64; 3]; 3];
+    fn positions(&self) -> Vec<[f64; 3]>;
+    fn numbers(&self) -> Vec<i32>;
+
+    /// # Errors
+    /// TODO: ???
+    fn is_supercell(&self, symprec: f64) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        let m = self.lattice();
+        let (a, b, c) = (m[0], m[1], m[2]);
+        let lattice = crate::moyo_wrapper::Lattice::new(a, b, c);
+        let positions = self.positions();
+        let numbers = self.numbers();
+
+        let natoms = numbers.len();
+        let cell = CellBuilder::new()
+            .with_lattice(lattice)
+            .with_positions(positions)
+            .with_numbers(numbers)
+            .build();
+        let sym_info = crate::moyo_wrapper::analyze_symmetry(&cell, symprec)?;
+        let cell_priv = sym_info.prim_std_cell();
+        match natoms.cmp(&cell_priv.numbers().len()) {
+            cmp::Ordering::Less => unreachable!("primitive cell cannot have more atoms."),
+            cmp::Ordering::Equal => Ok(false),
+            cmp::Ordering::Greater => Ok(true),
+        }
+    }
+
+    // TODO: this can become the generic interface of moyo symmetry analysis call
+}
+
+impl SymmetryExt for Crystal {
+    fn lattice(&self) -> [[f64; 3]; 3] {
+        let a: [f64; 3] = self.lattice().a().map(f64::from);
+        let b: [f64; 3] = self.lattice().b().map(f64::from);
+        let c: [f64; 3] = self.lattice().c().map(f64::from);
+        [a, b, c]
+    }
+
+    fn positions(&self) -> Vec<[f64; 3]> {
+        self.positions().iter().map(|p| p.map(f64::from)).collect()
+    }
+
+    fn numbers(&self) -> Vec<i32> {
+        self.species()
+            .iter()
+            .map(|s| i32::from(s.atomic_number()))
+            .collect()
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -987,7 +1146,7 @@ mod tests {
     }
 
     #[test]
-    fn latt_change_basis_by() {
+    fn latt_linear_combine() {
         let lattice = lattice_angstrom![
             // no orthogonal cell
             a = (2.0, 0.5, 0.0),
@@ -1001,7 +1160,7 @@ mod tests {
             0 0 1;
         ];
 
-        let latt = lattice.change_basis_by(&tmatrix);
+        let latt = lattice.linear_combine(&tmatrix);
         // a
         assert_eq_approx!(f64::from(latt.a[0]), 2.0);
         assert_eq_approx!(f64::from(latt.a[1]), 0.5);
@@ -1020,7 +1179,7 @@ mod tests {
             0,                   0,     1;
         ];
 
-        let latt = lattice.change_basis_by(&tmatrix);
+        let latt = lattice.linear_combine(&tmatrix);
 
         //  1.73205  1.93301  0.25
         // -1.0      2.34808  0.433013
@@ -1039,7 +1198,7 @@ mod tests {
     }
 
     #[test]
-    fn position_change_basis_by() {
+    fn position_linear_combine() {
         let p = Vector3::<FracCoord>([
             FracCoord::from(1.0),
             FracCoord::from(2.0),
@@ -1051,7 +1210,7 @@ mod tests {
             0 0 1;
         ];
 
-        let pt = p.change_basis_by(&m).unwrap();
+        let pt = p.linear_combine(&m).unwrap();
         assert_eq_approx!(f64::from(pt[0]), 2.0);
         assert_eq_approx!(f64::from(pt[1]), 1.0);
         assert_eq_approx!(f64::from(pt[2]), 3.0);

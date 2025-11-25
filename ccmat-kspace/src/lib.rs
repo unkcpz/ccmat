@@ -128,7 +128,7 @@ fn find_primitive_hpkot(
 ) -> Result<(Crystal, Matrix3, Vec<usize>), Box<dyn std::error::Error + Send + Sync>> {
     let (tp, inv_tp) = find_p_matrix(syminfo);
 
-    let lattice_priv = standardize_structure.lattice().change_basis_by(&tp);
+    let lattice_priv = standardize_structure.lattice().linear_combine(&tp);
 
     let (positions, species) = (
         standardize_structure.positions(),
@@ -158,7 +158,7 @@ fn find_primitive_hpkot(
     let mut mapping: Vec<usize> = Vec::with_capacity(positions.len());
     // brute forcely filter sites with duplicate position
     for (position, specie) in positions.iter().zip(species.iter()) {
-        let new_position = position.change_basis_by(&tp)?;
+        let new_position = position.linear_combine(&tp)?;
         if let Some(idx) = find_position(&sites, new_position) {
             // duplicate site
             mapping.push(idx);
@@ -302,7 +302,7 @@ pub fn find_path(
             });
             let mt = std::mem::take(&mut matrix_mapping[0].1);
             let lattice = latt_reciprocal_niggli_reduced.reciprocal();
-            let lattice = lattice.change_basis_by(&mt);
+            let lattice = lattice.linear_combine(&mt);
             let klattice = lattice.reciprocal();
 
             // Make them all-acute or all-obtuse with the additional conditions
@@ -367,7 +367,7 @@ pub fn find_path(
                 }
             };
 
-            let klattice = lattice.change_basis_by(&m3).reciprocal();
+            let klattice = lattice.linear_combine(&m3).reciprocal();
             let (_, _, _, kalpha3, kbeta3, kgamma3) = klattice.lattice_params();
             let (kalpha3, kbeta3, kgamma3): (f64, f64, f64) =
                 (kalpha3.into(), kbeta3.into(), kgamma3.into());
@@ -532,6 +532,8 @@ pub fn find_path(
         BravaisClass::cI => ExtBravaisClass::cI1,
     };
 
+    dbg!(&ext_bravais);
+
     let path_info = path::lookup(&ext_bravais);
     let path_eval = path::eval(path_info, lattice_params)?;
 
@@ -545,9 +547,11 @@ pub fn find_path(
 )]
 #[cfg(test)]
 mod tests {
+    use ccmat_core::math::Vector3;
     use ccmat_core::{
-        analyze_symmetry, atomic_number, lattice_angstrom, sites_frac_coord, CrystalBuilder,
+        analyze_symmetry, atomic_number, lattice_angstrom, sites_frac_coord, CrystalBuilder, Site,
     };
+    use ccmat_core::{matrix_3x3, SymmetryExt};
     use tracing_test::traced_test;
 
     use crate::find_path;
@@ -817,7 +821,9 @@ mod tests {
 
         let _ = find_path(&s, 1e-5, 1e-7);
 
-        assert!(logs_contain("oI lattice, but the two longest vectors B and C have almost the same length"));
+        assert!(logs_contain(
+            "oI lattice, but the two longest vectors B and C have almost the same length"
+        ));
     }
 
     #[traced_test]
@@ -881,4 +887,160 @@ mod tests {
     }
 
     // TODO: test on mC and oP for warning messages as well as planed in seekpath
+
+    #[test]
+    fn nonstandard_cubic() {
+        let lattice = lattice_angstrom![(4.0, 0.0, 0.0), (0.0, 4.0, 0.0), (0.0, 0.0, 4.0),];
+
+        let sites = sites_frac_coord![
+            (0.0000000000000000, 0.0000000000000000, 0.0000000000000000), atomic_number!(H);
+        ];
+
+        let s = CrystalBuilder::new()
+            .with_lattice(&lattice)
+            .with_sites(&sites)
+            .build()
+            .unwrap();
+
+        let syminfo = analyze_symmetry(&s, 1e-5).unwrap();
+        assert_eq!(syminfo.spacegroup_symbol(), "Pm-3m");
+        assert!(!s.is_supercell(1e-5).unwrap());
+
+        // FIXME: rotate std cell, rotate the kpath coords
+        let rot_mat = matrix_3x3![
+            -1,  0,  0;
+             0,  cos(0.3), -sin(0.3);
+             0,  sin(0.3), cos(0.3);
+        ];
+        let t_mat = matrix_3x3![
+            1,  0,  0;
+            0,  1,  0;
+            1,  2, -1;
+        ];
+
+        let new_s = s
+            .linear_combine_basis(&t_mat).unwrap()
+            .rotate_basis(&rot_mat)
+            .unwrap();
+
+        let syminfo = analyze_symmetry(&new_s, 1e-5).unwrap();
+        assert_eq!(syminfo.spacegroup_symbol(), "Pm-3m");
+        assert!(!new_s.is_supercell(1e-5).unwrap());
+    }
+
+    #[test]
+    fn nonstandard_fcc() {
+        let lattice = lattice_angstrom![(-3.0, 0.0, 3.0), (0.0, 3.0, 3.0), (-3.0, 3.0, 0.0),];
+
+        let sites = sites_frac_coord![
+            (0.0000000000000000, 0.0000000000000000, 0.0000000000000000), atomic_number!(H);
+            (0.2500000000000000, 0.2500000000000000, 0.2500000000000000), atomic_number!(H);
+        ];
+
+        let s = CrystalBuilder::new()
+            .with_lattice(&lattice)
+            .with_sites(&sites)
+            .build()
+            .unwrap();
+
+        let syminfo = analyze_symmetry(&s, 1e-5).unwrap();
+        assert_eq!(syminfo.spacegroup_symbol(), "Fd-3m");
+        assert!(!s.is_supercell(1e-5).unwrap());
+
+        // FIXME: rotate std cell, rotate the kpath coords
+        let rot_mat = matrix_3x3![
+             cos(0.1), -sin(0.1), 0;
+             sin(0.1), cos(0.1), 0;
+             0,  0,  1;
+        ];
+        // a -> a, b -> b, c -> a + c
+        let t_mat = matrix_3x3![
+            1,  0,  1;
+            0,  1,  0;
+            0,  0,  1;
+        ];
+
+        let s = s
+            .linear_combine_basis(&t_mat).unwrap()
+            .rotate_basis(&rot_mat)
+            .unwrap();
+
+        dbg!(&s);
+
+        let syminfo = analyze_symmetry(&s, 1e-5).unwrap();
+        assert_eq!(syminfo.spacegroup_symbol(), "Fd-3m");
+        assert!(!s.is_supercell(1e-5).unwrap());
+        let std_s = syminfo.standardize_structure();
+        dbg!(std_s);
+        dbg!(syminfo.bravais_class());
+
+        // XXX: find_path not need to return kinfo, it is just a lookup result,
+        let (_, keval, s_priv) = find_path(&s, 1e-5, 1e-7).unwrap();
+        let rot_m = syminfo.std_rotation();
+        // dbg!(rot_m);
+        // dbg!(&keval); 
+        //
+        // dbg!(&s_priv);
+        // dbg!(syminfo.standardize_structure());
+
+        let klatt_orig = s.lattice().reciprocal();
+        let klatt_std = s_priv.lattice().reciprocal();
+        
+        let v = keval.points[6].1;
+        let v = Vector3([v.0, v.1, v.2]);
+        // let res = klatt_orig.vec_from_cartesian(klatt_std.compute_cartesian(v));
+        let res: Vector3<f64> = klatt_std.compute_cartesian(v).into();
+        // dbg!(res);
+        // dbg!(&rot_m);
+        let res = rot_m * res;
+        let res = klatt_orig.vec_from_cartesian(res.into());
+        // dbg!(res);
+    }
+
+    #[test]
+    fn nonstandard_tetragonal() {
+        let lattice = lattice_angstrom![(4.0, 0.0, 0.0), (0.0, 4.0, 0.0), (0.0, 0.0, 6.0),];
+
+        let sites = sites_frac_coord![
+            (0.0000000000000000, 0.0000000000000000, 0.0000000000000000), atomic_number!(H);
+            (0.0000000000000000, 0.0000000000000000, 0.2000000000000000), atomic_number!(He);
+        ];
+
+        let s = CrystalBuilder::new()
+            .with_lattice(&lattice)
+            .with_sites(&sites)
+            .build()
+            .unwrap();
+
+        let syminfo = analyze_symmetry(&s, 1e-5).unwrap();
+        assert_eq!(syminfo.spacegroup_symbol(), "P4mm");
+        assert!(!s.is_supercell(1e-5).unwrap());
+
+        // FIXME: rotate std cell, rotate the kpath coords
+    }
+
+    #[test]
+    fn nonstandard_monoclinic() {
+        let lattice = lattice_angstrom![(1.0, 0.0, 0.0), (0.0, 3.0, 0.0), (-2.0, 0.0, 5.0),];
+
+        let sites = sites_frac_coord![
+            (0.0000000000000000, 0.0000000000000000, 0.0000000000000000), atomic_number!(H);
+            (0.1000000000000000, 0.2000000000000000, 0.3000000000000000), atomic_number!(He);
+        ];
+
+        let s = CrystalBuilder::new()
+            .with_lattice(&lattice)
+            .with_sites(&sites)
+            .build()
+            .unwrap();
+
+        let syminfo = analyze_symmetry(&s, 1e-5).unwrap();
+        assert_eq!(syminfo.spacegroup_symbol(), "Pm");
+        assert!(!s.is_supercell(1e-5).unwrap());
+
+        // FIXME: rotate std cell, rotate the kpath coords
+    }
+
+    // TODO: test_nonstandard_cubic_supercell
+    // TODO: test_no_symmetrization
 }

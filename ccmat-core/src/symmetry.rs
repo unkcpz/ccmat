@@ -81,6 +81,12 @@ impl SymmetryInfo {
         self.inner.hall_symbol()
     }
 
+    /// Spage group symbol (aka "Hermann–Mauguin (International) symbol")
+    #[must_use]
+    pub fn spacegroup_symbol(&self) -> Cow<'_, str> {
+        self.inner.spagegroup_symbol()
+    }
+
     /// Check if contain inversion symmetry.
     #[must_use]
     pub fn has_inversion(&self) -> bool {
@@ -91,6 +97,10 @@ impl SymmetryInfo {
     #[must_use]
     pub fn standardize_structure(&self) -> Crystal {
         self.inner.std_cell().into()
+    }
+
+    pub fn std_rotation(&self) -> Matrix3 {
+        Matrix3(self.inner.std_rotation())
     }
 }
 
