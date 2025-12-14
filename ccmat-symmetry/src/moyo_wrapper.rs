@@ -29,8 +29,13 @@ use moyo::{
     MoyoDataset,
 };
 
-// re-export
-pub(crate) use moyo::data::{BravaisClass, Centering};
+pub(crate) struct BravaisClass {
+    pub(crate) inner: moyo::data::BravaisClass,
+}
+
+pub(crate) struct Centering {
+    pub(crate) inner: moyo::data::Centering,
+}
 
 pub(crate) mod __macro {
     macro_rules! __vec3_angstrom {
@@ -309,7 +314,9 @@ impl SymmetryInfo {
         let arithmetic_entry =
             arithmetic_crystal_class_entry(hall_symbol.arithmetic_number).unwrap();
 
-        arithmetic_entry.bravais_class
+        BravaisClass {
+            inner: arithmetic_entry.bravais_class,
+        }
     }
 
     /// Centering
@@ -323,7 +330,9 @@ impl SymmetryInfo {
         let hall_number = self.inner.hall_number;
         let hall_symbol =
             hall_symbol_entry(hall_number).expect("unable to get hall symbol from hall_number");
-        hall_symbol.centering
+        Centering {
+            inner: hall_symbol.centering,
+        }
     }
 
     /// Hall symbol

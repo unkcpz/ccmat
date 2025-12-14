@@ -10,11 +10,10 @@
 
 use std::borrow::Cow;
 
-use crate::math::{Matrix3, TransformationMatrix, Vector3};
 use crate::moyo_wrapper;
-use crate::structure::Centering;
-use crate::BravaisClass;
-use crate::{lattice_angstrom, Crystal, CrystalBuilder, FracCoord, Site};
+use ccmat_core::math::{Matrix3, TransformationMatrix, Vector3};
+use ccmat_core::{lattice_angstrom, Basis, Crystal, CrystalBuilder, FracCoord, Site};
+use ccmat_core::{BravaisClass, Centering};
 
 /// delegation of `moyo_wrapper` to ccmat API users.
 pub struct SymmetryInfo {
@@ -23,35 +22,35 @@ pub struct SymmetryInfo {
 
 impl From<moyo_wrapper::BravaisClass> for BravaisClass {
     fn from(bv: moyo_wrapper::BravaisClass) -> Self {
-        match bv {
-            moyo_wrapper::BravaisClass::aP => BravaisClass::aP,
-            moyo_wrapper::BravaisClass::mP => BravaisClass::mP,
-            moyo_wrapper::BravaisClass::mC => BravaisClass::mC,
-            moyo_wrapper::BravaisClass::oP => BravaisClass::oP,
-            moyo_wrapper::BravaisClass::oS => BravaisClass::oS,
-            moyo_wrapper::BravaisClass::oF => BravaisClass::oF,
-            moyo_wrapper::BravaisClass::oI => BravaisClass::oI,
-            moyo_wrapper::BravaisClass::tP => BravaisClass::tP,
-            moyo_wrapper::BravaisClass::tI => BravaisClass::tI,
-            moyo_wrapper::BravaisClass::hR => BravaisClass::hR,
-            moyo_wrapper::BravaisClass::hP => BravaisClass::hP,
-            moyo_wrapper::BravaisClass::cP => BravaisClass::cP,
-            moyo_wrapper::BravaisClass::cF => BravaisClass::cF,
-            moyo_wrapper::BravaisClass::cI => BravaisClass::cI,
+        match bv.inner {
+            moyo::data::BravaisClass::aP => BravaisClass::aP,
+            moyo::data::BravaisClass::mP => BravaisClass::mP,
+            moyo::data::BravaisClass::mC => BravaisClass::mC,
+            moyo::data::BravaisClass::oP => BravaisClass::oP,
+            moyo::data::BravaisClass::oS => BravaisClass::oS,
+            moyo::data::BravaisClass::oF => BravaisClass::oF,
+            moyo::data::BravaisClass::oI => BravaisClass::oI,
+            moyo::data::BravaisClass::tP => BravaisClass::tP,
+            moyo::data::BravaisClass::tI => BravaisClass::tI,
+            moyo::data::BravaisClass::hR => BravaisClass::hR,
+            moyo::data::BravaisClass::hP => BravaisClass::hP,
+            moyo::data::BravaisClass::cP => BravaisClass::cP,
+            moyo::data::BravaisClass::cF => BravaisClass::cF,
+            moyo::data::BravaisClass::cI => BravaisClass::cI,
         }
     }
 }
 
 impl From<moyo_wrapper::Centering> for Centering {
     fn from(c: moyo_wrapper::Centering) -> Self {
-        match c {
-            moyo_wrapper::Centering::P => Centering::P,
-            moyo_wrapper::Centering::A => Centering::A,
-            moyo_wrapper::Centering::B => Centering::B,
-            moyo_wrapper::Centering::C => Centering::C,
-            moyo_wrapper::Centering::I => Centering::I,
-            moyo_wrapper::Centering::R => Centering::R,
-            moyo_wrapper::Centering::F => Centering::F,
+        match c.inner {
+            moyo::data::Centering::P => Centering::P,
+            moyo::data::Centering::A => Centering::A,
+            moyo::data::Centering::B => Centering::B,
+            moyo::data::Centering::C => Centering::C,
+            moyo::data::Centering::I => Centering::I,
+            moyo::data::Centering::R => Centering::R,
+            moyo::data::Centering::F => Centering::F,
         }
     }
 }
@@ -108,10 +107,10 @@ pub fn analyze_symmetry(
     Ok(sym_info)
 }
 
-type Basis = [Vector3<f64>; 3];
-
 /// further wrap ``moyo::math::niggili::niggli_reduce`` (however not exposed) into function where the types ccmat confortable to work with.
-pub(crate) fn niggli_reduce(
+/// # Errors
+/// ???
+pub fn niggli_reduce(
     basis: Basis,
 ) -> Result<(Basis, TransformationMatrix), Box<dyn std::error::Error + Send + Sync>> {
     let basis = basis.map(|v| *v);
@@ -203,7 +202,7 @@ impl From<moyo_wrapper::Cell> for Crystal {
 
 #[cfg(test)]
 mod tests {
-    use crate::{atomic_number, lattice_angstrom, sites_frac_coord, CrystalBuilder};
+    use ccmat_core::{atomic_number, lattice_angstrom, sites_frac_coord, CrystalBuilder};
 
     use super::*;
 

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = [ "ccmat","ccmat-core", "ccmat-kspace", "ccmat-macros"]
+members = [ "ccmat","ccmat-core", "ccmat-kspace", "ccmat-macros", "ccmat-symmetry"]
 
 [workspace.package]
 version = "0.1.0"

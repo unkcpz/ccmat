@@ -75,8 +75,6 @@ name = "ccmat-core"
 version = "0.1.0"
 dependencies = [
  "ccmat-macros",
- "moyo",
- "nalgebra",
  "trybuild",
 ]
 
@@ -85,6 +83,7 @@ name = "ccmat-kspace"
 version = "0.1.0"
 dependencies = [
  "ccmat-core",
+ "ccmat-symmetry",
  "evalexpr",
  "moyo",
  "tracing",
@@ -99,6 +98,15 @@ dependencies = [
  "quote",
  "syn",
  "trybuild",
+]
+
+[[package]]
+name = "ccmat-symmetry"
+version = "0.1.0"
+dependencies = [
+ "ccmat-core",
+ "moyo",
+ "nalgebra",
 ]
 
 [[package]]

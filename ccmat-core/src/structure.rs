@@ -19,10 +19,7 @@
  *
  */
 
-use crate::{
-    math::{TransformationMatrix, Vector3},
-    symmetry::niggli_reduce,
-};
+use crate::math::{TransformationMatrix, Vector3};
 
 // TODO: naming convention for vars, check IUCr or cif specification
 // Give a table to compare in between different popular tools.
@@ -235,6 +232,8 @@ pub enum Centering {
     F, // Face centered
 }
 
+pub type Basis = [Vector3<f64>; 3];
+
 /// Lattice
 /// inner data structure of the struct are private.
 /// TODO: this can derive Copy
@@ -394,22 +393,23 @@ impl Lattice {
         LatticeReciprocal::new(a_star, b_star, c_star)
     }
 
-    /// Find  niggli reduce lattice.
-    ///
-    /// It using `moyo` to search the niggli reduced lattice, return the reduced lattice and the
-    /// operation matrix.
-    ///
-    /// # Errors
-    ///
-    /// Error when the search failed which happened if the lattice found is not pass the niggli lattice validation.
-    pub fn niggli_reduce(
-        &self,
-    ) -> Result<(Self, TransformationMatrix), Box<dyn std::error::Error + Send + Sync>> {
-        let (a, b, c) = (self.a.into(), self.b.into(), self.c.into());
-        let (basis, matrix) = niggli_reduce([a, b, c])?;
-        let latt = Lattice::new(basis[0].into(), basis[1].into(), basis[2].into());
-        Ok((latt, matrix))
-    }
+    // FIXME: remove me after the trait in moyo_wrapper provided.
+    // /// Find  niggli reduce lattice.
+    // ///
+    // /// It using `moyo` to search the niggli reduced lattice, return the reduced lattice and the
+    // /// operation matrix.
+    // ///
+    // /// # Errors
+    // ///
+    // /// Error when the search failed which happened if the lattice found is not pass the niggli lattice validation.
+    // pub fn niggli_reduce(
+    //     &self,
+    // ) -> Result<(Self, TransformationMatrix), Box<dyn std::error::Error + Send + Sync>> {
+    //     let (a, b, c) = (self.a.into(), self.b.into(), self.c.into());
+    //     let (basis, matrix) = niggli_reduce([a, b, c])?;
+    //     let latt = Lattice::new(basis[0].into(), basis[1].into(), basis[2].into());
+    //     Ok((latt, matrix))
+    // }
 
     /// Lattice is represented in the new basis
     ///
@@ -606,14 +606,17 @@ impl LatticeReciprocal {
         )
     }
 
-    pub fn niggli_reduce(
-        &self,
-    ) -> Result<(Self, TransformationMatrix), Box<dyn std::error::Error + Send + Sync>> {
-        let (a, b, c) = (self.a.into(), self.b.into(), self.c.into());
-        let (basis, matrix) = niggli_reduce([a, b, c])?;
-        let latt = LatticeReciprocal::new(basis[0].into(), basis[1].into(), basis[2].into());
-        Ok((latt, matrix))
-    }
+    // FIXME: remove me after the trait in moyo_wrapper provided.
+    // XXX: since I move moyo to ccmat_symmetry crate and to as extra dependency, the basic
+    // structure data type cannot have this.
+    // pub fn niggli_reduce(
+    //     &self,
+    // ) -> Result<(Self, TransformationMatrix), Box<dyn std::error::Error + Send + Sync>> {
+    //     let (a, b, c) = (self.a.into(), self.b.into(), self.c.into());
+    //     let (basis, matrix) = niggli_reduce([a, b, c])?;
+    //     let latt = LatticeReciprocal::new(basis[0].into(), basis[1].into(), basis[2].into());
+    //     Ok((latt, matrix))
+    // }
 
     /// Lattice is represented in the new basis
     ///
@@ -763,7 +766,8 @@ impl CrystalBuilder<LatticeSet, SitesSet> {
 
     // build without runtime validation this is for proc macro which valid in compile time.
     // It is also used inside crate where the crystal is known to be valid.
-    pub(crate) fn build_uncheck(self) -> Crystal {
+    #[must_use]
+    pub fn build_uncheck(self) -> Crystal {
         debug_assert!(self.crystal.positions.len() == self.crystal.species.len());
 
         self.crystal
