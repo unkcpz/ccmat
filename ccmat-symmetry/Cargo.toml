@@ -1,5 +1,5 @@
 [package]
-name = "ccmat-core"
+name = "ccmat-symmetry"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -10,7 +10,7 @@ homepage.workspace = true
 keywords.workspace = true
 
 [dependencies]
-ccmat-macros = { path = "../ccmat-macros" }
+moyo = "0.7.1"
+nalgebra = "0.34.1"
+ccmat-core = { path = "../ccmat-core" }
 
-[dev-dependencies]
-trybuild = "1.0.112"

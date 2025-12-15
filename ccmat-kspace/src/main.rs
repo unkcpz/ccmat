@@ -1,8 +1,6 @@
-use ccmat_core::{
-    analyze_symmetry, atomic_number, lattice_angstrom, sites_frac_coord, BravaisClass,
-    CrystalBuilder,
-};
+use ccmat_core::{atomic_number, lattice_angstrom, sites_frac_coord, BravaisClass, CrystalBuilder};
 use ccmat_kspace::find_path;
+use ccmat_symmetry::analyze_symmetry;
 
 fn main() {
     let lattice = lattice_angstrom![(4.0, 0.0, 0.0), (0.0, 4.0, 0.0), (0.0, 0.0, 4.0),];

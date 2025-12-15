@@ -1,10 +1,10 @@
 mod path;
 
 use ccmat_core::{
-    analyze_symmetry,
     math::{approx_f64, Matrix3, TransformationMatrix, Vector3},
-    matrix_3x3, BravaisClass, Crystal, CrystalBuilder, FracCoord, Site, SymmetryInfo,
+    matrix_3x3, BravaisClass, Crystal, CrystalBuilder, FracCoord, Site,
 };
+use ccmat_symmetry::{analyze_symmetry, moyo_wrapper::NiggliReduce, SymmetryInfo};
 use tracing::warn;
 
 use crate::path::{KpathEval, KpathInfo};
@@ -253,11 +253,12 @@ pub fn find_path(
         BravaisClass::aP => {
             // get the niggli reduced reciprocal lattice from standard lattice and back to real
             // space.
-            let (latt_reciprocal_niggli_reduced, _) =
-                structure_std.lattice().reciprocal().niggli_reduce()?;
+            // XXX: to get a niggli_reduce this quite cumbersome with type casting... how to
+            // improve?? I should find a way that LatticeReciprocal can call niggli_reduce but
+            // without the need of ccmat_core depend on moyo. I should make niggli_reduce into a trait.
+            let rlatt_niggli_reduced = structure_std.lattice().reciprocal().niggli_reduce()?;
 
-            let (ka, kb, kc, kalpha, kbeta, kgamma) =
-                latt_reciprocal_niggli_reduced.lattice_params();
+            let (ka, kb, kc, kalpha, kbeta, kgamma) = rlatt_niggli_reduced.lattice_params();
 
             let ka: f64 = ka.into();
             let kb: f64 = kb.into();
@@ -301,7 +302,7 @@ pub fn find_path(
                     .expect("f64::NaN appears in matrix mapping")
             });
             let mt = std::mem::take(&mut matrix_mapping[0].1);
-            let lattice = latt_reciprocal_niggli_reduced.reciprocal();
+            let lattice = rlatt_niggli_reduced.reciprocal();
             let lattice = lattice.change_basis_by(&mt);
             let klattice = lattice.reciprocal();
 
@@ -545,9 +546,8 @@ pub fn find_path(
 )]
 #[cfg(test)]
 mod tests {
-    use ccmat_core::{
-        analyze_symmetry, atomic_number, lattice_angstrom, sites_frac_coord, CrystalBuilder,
-    };
+    use ccmat_core::{atomic_number, lattice_angstrom, sites_frac_coord, CrystalBuilder};
+    use ccmat_symmetry::analyze_symmetry;
     use tracing_test::traced_test;
 
     use crate::find_path;

@@ -24,13 +24,17 @@ use std::borrow::Cow;
 // - MoyoDataSet -> SymmetryInfo as I show and impl below
 use moyo::{
     self,
-    base::MoyoError,
     data::{arithmetic_crystal_class_entry, hall_symbol_entry},
     MoyoDataset,
 };
 
-// re-export
-pub(crate) use moyo::data::{BravaisClass, Centering};
+pub(crate) struct BravaisClass {
+    pub(crate) inner: moyo::data::BravaisClass,
+}
+
+pub(crate) struct Centering {
+    pub(crate) inner: moyo::data::Centering,
+}
 
 pub(crate) mod __macro {
     macro_rules! __vec3_angstrom {
@@ -264,6 +268,33 @@ impl CellBuilder<LatticeSet, PositionsSet, NumbersSet> {
     }
 }
 
+#[derive(Debug)]
+pub struct MoyoError {
+    inner: moyo::base::MoyoError,
+}
+
+impl std::fmt::Display for MoyoError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.inner)
+    }
+}
+
+impl std::error::Error for MoyoError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.inner)
+    }
+}
+
+impl From<moyo::base::MoyoError> for MoyoError {
+    fn from(value: moyo::base::MoyoError) -> Self {
+        Self { inner: value }
+    }
+}
+
+pub trait NiggliReduce: Sized {
+    fn niggli_reduce(&self) -> Result<Self, MoyoError>;
+}
+
 /// Wrapper of `MoyoDataset` with handy (in my opinion) APIs.
 pub(crate) struct SymmetryInfo {
     inner: MoyoDataset,
@@ -309,7 +340,9 @@ impl SymmetryInfo {
         let arithmetic_entry =
             arithmetic_crystal_class_entry(hall_symbol.arithmetic_number).unwrap();
 
-        arithmetic_entry.bravais_class
+        BravaisClass {
+            inner: arithmetic_entry.bravais_class,
+        }
     }
 
     /// Centering
@@ -323,7 +356,9 @@ impl SymmetryInfo {
         let hall_number = self.inner.hall_number;
         let hall_symbol =
             hall_symbol_entry(hall_number).expect("unable to get hall symbol from hall_number");
-        hall_symbol.centering
+        Centering {
+            inner: hall_symbol.centering,
+        }
     }
 
     /// Hall symbol
@@ -390,7 +425,8 @@ pub(crate) fn niggli_reduce_unchecked(basis: Basis) -> (Basis, TransformMatrix) 
 
 pub(crate) fn niggli_reduce(basis: Basis) -> Result<(Basis, TransformMatrix), MoyoError> {
     let lattice = moyo::base::Lattice::from_basis(basis);
-    let (lattice_converted, mat_trans) = lattice.niggli_reduce()?;
+    let (lattice_converted, mat_trans) = lattice.niggli_reduce().map_err(MoyoError::from)?;
+
     Ok((lattice_converted.basis.into(), mat_trans.into()))
 }
 
