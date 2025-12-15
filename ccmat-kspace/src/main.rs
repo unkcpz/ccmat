@@ -14,7 +14,7 @@ fn main() {
 
     let s = CrystalBuilder::new()
         .with_lattice(&lattice)
-        .with_sites(&sites)
+        .with_sites(sites)
         .build()
         .unwrap();
 

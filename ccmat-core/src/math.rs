@@ -141,8 +141,12 @@ impl<T> Index<usize> for Vector3<T> {
     }
 }
 
-impl Mul<Vector3<f64>> for f64 {
-    type Output = Vector3<f64>;
+impl<T> Mul<Vector3<T>> for f64
+where
+    f64: From<T>,
+    T: Copy + From<f64>,
+{
+    type Output = Vector3<T>;
 
     /// Scalar multiply for a `Vector3<f64>`
     ///
@@ -154,9 +158,12 @@ impl Mul<Vector3<f64>> for f64 {
     /// let vec3 = Vector3::<f64>([2.0, 2.0, 4.0]);
     /// assert_eq!(0.1 * vec3, Vector3::<f64>([0.2, 0.2, 0.4]));
     /// ```
-    fn mul(self, rhs: Vector3<f64>) -> Self::Output {
-        let v = rhs.map(|x| x * self);
-        Vector3::<f64>(v)
+    fn mul(self, rhs: Vector3<T>) -> Self::Output {
+        let v = rhs.map(|x| {
+            let x = f64::from(x) * self;
+            x.into()
+        });
+        Vector3(v)
     }
 }
 
