@@ -1,9 +1,10 @@
 mod path;
 
 use ccmat_core::{
-    Basis, BravaisClass, Crystal, CrystalBuilder, FracCoord, LatticeReciprocal, Site, math::{Matrix3, TransformationMatrix, Vector3, approx_f64}, matrix_3x3
+    math::{approx_f64, Matrix3, TransformationMatrix, Vector3},
+    matrix_3x3, BravaisClass, Crystal, CrystalBuilder, FracCoord, Site,
 };
-use ccmat_symmetry::{analyze_symmetry, niggli_reduce, SymmetryInfo};
+use ccmat_symmetry::{analyze_symmetry, moyo_wrapper::NiggliReduce, SymmetryInfo};
 use tracing::warn;
 
 use crate::path::{KpathEval, KpathInfo};
@@ -255,17 +256,9 @@ pub fn find_path(
             // XXX: to get a niggli_reduce this quite cumbersome with type casting... how to
             // improve?? I should find a way that LatticeReciprocal can call niggli_reduce but
             // without the need of ccmat_core depend on moyo. I should make niggli_reduce into a trait.
-            let rlatt = structure_std.lattice().reciprocal();
-            let basis: Basis = [
-                rlatt.a_star().into(),
-                rlatt.b_star().into(),
-                rlatt.c_star().into(),
-            ];
-            let (basis, _) = niggli_reduce(basis)?;
-            let rlatt_niggli_reduced = LatticeReciprocal::new(basis[0].into(), basis[1].into(), basis[2].into());
+            let rlatt_niggli_reduced = structure_std.lattice().reciprocal().niggli_reduce()?;
 
-            let (ka, kb, kc, kalpha, kbeta, kgamma) =
-                rlatt_niggli_reduced.lattice_params();
+            let (ka, kb, kc, kalpha, kbeta, kgamma) = rlatt_niggli_reduced.lattice_params();
 
             let ka: f64 = ka.into();
             let kb: f64 = kb.into();

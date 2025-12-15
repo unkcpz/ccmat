@@ -10,9 +10,9 @@
 
 use std::borrow::Cow;
 
-use crate::moyo_wrapper;
-use ccmat_core::math::{Matrix3, TransformationMatrix, Vector3};
-use ccmat_core::{lattice_angstrom, Basis, Crystal, CrystalBuilder, FracCoord, Site};
+use crate::moyo_wrapper::{self, MoyoError, NiggliReduce};
+use ccmat_core::math::Vector3;
+use ccmat_core::{lattice_angstrom, Basis, Crystal, CrystalBuilder, FracCoord, HasBasis, Site};
 use ccmat_core::{BravaisClass, Centering};
 
 /// delegation of `moyo_wrapper` to ccmat API users.
@@ -107,22 +107,16 @@ pub fn analyze_symmetry(
     Ok(sym_info)
 }
 
-/// further wrap ``moyo::math::niggili::niggli_reduce`` (however not exposed) into function where the types ccmat confortable to work with.
-/// # Errors
-/// ???
-pub fn niggli_reduce(
-    basis: Basis,
-) -> Result<(Basis, TransformationMatrix), Box<dyn std::error::Error + Send + Sync>> {
-    let basis = basis.map(|v| *v);
-    match moyo_wrapper::niggli_reduce(basis) {
-        Ok(result) => {
-            let basis: [Vector3<f64>; 3] = result.0.map(Vector3);
-            let mt = result
-                .1
-                .map(|v| [f64::from(v[0]), f64::from(v[1]), f64::from(v[2])]);
-            Ok((basis, Matrix3(mt)))
-        }
-        Err(err) => Err(format!("niggli reduction failed (moyo as symmery engine): {err}").into()),
+impl<T> NiggliReduce for T
+where
+    T: HasBasis + From<Basis>,
+{
+    fn niggli_reduce(&self) -> Result<Self, MoyoError> {
+        let basis = self.basis();
+        let basis = basis.map(|v| *v);
+        let (basis, _) = moyo_wrapper::niggli_reduce(basis)?;
+        let basis: [Vector3<f64>; 3] = basis.map(Vector3);
+        Ok(Self::from(basis))
     }
 }
 

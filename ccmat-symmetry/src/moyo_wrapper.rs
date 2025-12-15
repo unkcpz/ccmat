@@ -24,7 +24,6 @@ use std::borrow::Cow;
 // - MoyoDataSet -> SymmetryInfo as I show and impl below
 use moyo::{
     self,
-    base::MoyoError,
     data::{arithmetic_crystal_class_entry, hall_symbol_entry},
     MoyoDataset,
 };
@@ -269,6 +268,33 @@ impl CellBuilder<LatticeSet, PositionsSet, NumbersSet> {
     }
 }
 
+#[derive(Debug)]
+pub struct MoyoError {
+    inner: moyo::base::MoyoError,
+}
+
+impl std::fmt::Display for MoyoError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.inner)
+    }
+}
+
+impl std::error::Error for MoyoError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.inner)
+    }
+}
+
+impl From<moyo::base::MoyoError> for MoyoError {
+    fn from(value: moyo::base::MoyoError) -> Self {
+        Self { inner: value }
+    }
+}
+
+pub trait NiggliReduce: Sized {
+    fn niggli_reduce(&self) -> Result<Self, MoyoError>;
+}
+
 /// Wrapper of `MoyoDataset` with handy (in my opinion) APIs.
 pub(crate) struct SymmetryInfo {
     inner: MoyoDataset,
@@ -399,7 +425,8 @@ pub(crate) fn niggli_reduce_unchecked(basis: Basis) -> (Basis, TransformMatrix) 
 
 pub(crate) fn niggli_reduce(basis: Basis) -> Result<(Basis, TransformMatrix), MoyoError> {
     let lattice = moyo::base::Lattice::from_basis(basis);
-    let (lattice_converted, mat_trans) = lattice.niggli_reduce()?;
+    let (lattice_converted, mat_trans) = lattice.niggli_reduce().map_err(MoyoError::from)?;
+
     Ok((lattice_converted.basis.into(), mat_trans.into()))
 }
 

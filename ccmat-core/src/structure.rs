@@ -293,6 +293,44 @@ fn cross(u: &Vector3<f64>, v: &Vector3<f64>) -> Vector3<f64> {
 }
 
 // TODO: Lattice and LatticeReciprocal can be generalized through Unit.
+// for instance it is not has trait HasBasis to cover both, need to be more generic
+pub trait HasBasis {
+    fn basis(&self) -> Basis;
+}
+
+impl HasBasis for Lattice {
+    fn basis(&self) -> Basis {
+        [self.a().into(), self.b().into(), self.c().into()]
+    }
+}
+
+impl HasBasis for LatticeReciprocal {
+    fn basis(&self) -> Basis {
+        [
+            self.a_star().into(),
+            self.b_star().into(),
+            self.c_star().into(),
+        ]
+    }
+}
+
+impl From<Basis> for Lattice {
+    fn from(bs: Basis) -> Self {
+        let a: Vector3<Angstrom> = bs[0].into();
+        let b: Vector3<Angstrom> = bs[1].into();
+        let c: Vector3<Angstrom> = bs[2].into();
+        Self { a, b, c }
+    }
+}
+
+impl From<Basis> for LatticeReciprocal {
+    fn from(bs: Basis) -> Self {
+        let a: Vector3<InvAngstrom> = bs[0].into();
+        let b: Vector3<InvAngstrom> = bs[1].into();
+        let c: Vector3<InvAngstrom> = bs[2].into();
+        Self { a, b, c }
+    }
+}
 
 impl Lattice {
     // TODO: how to use type system to validate the row/column definition?
@@ -392,24 +430,6 @@ impl Lattice {
 
         LatticeReciprocal::new(a_star, b_star, c_star)
     }
-
-    // FIXME: remove me after the trait in moyo_wrapper provided.
-    // /// Find  niggli reduce lattice.
-    // ///
-    // /// It using `moyo` to search the niggli reduced lattice, return the reduced lattice and the
-    // /// operation matrix.
-    // ///
-    // /// # Errors
-    // ///
-    // /// Error when the search failed which happened if the lattice found is not pass the niggli lattice validation.
-    // pub fn niggli_reduce(
-    //     &self,
-    // ) -> Result<(Self, TransformationMatrix), Box<dyn std::error::Error + Send + Sync>> {
-    //     let (a, b, c) = (self.a.into(), self.b.into(), self.c.into());
-    //     let (basis, matrix) = niggli_reduce([a, b, c])?;
-    //     let latt = Lattice::new(basis[0].into(), basis[1].into(), basis[2].into());
-    //     Ok((latt, matrix))
-    // }
 
     /// Lattice is represented in the new basis
     ///
@@ -605,18 +625,6 @@ impl LatticeReciprocal {
             f64::acos(cos_gamma).into(),
         )
     }
-
-    // FIXME: remove me after the trait in moyo_wrapper provided.
-    // XXX: since I move moyo to ccmat_symmetry crate and to as extra dependency, the basic
-    // structure data type cannot have this.
-    // pub fn niggli_reduce(
-    //     &self,
-    // ) -> Result<(Self, TransformationMatrix), Box<dyn std::error::Error + Send + Sync>> {
-    //     let (a, b, c) = (self.a.into(), self.b.into(), self.c.into());
-    //     let (basis, matrix) = niggli_reduce([a, b, c])?;
-    //     let latt = LatticeReciprocal::new(basis[0].into(), basis[1].into(), basis[2].into());
-    //     Ok((latt, matrix))
-    // }
 
     /// Lattice is represented in the new basis
     ///

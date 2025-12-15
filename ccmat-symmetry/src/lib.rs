@@ -1,4 +1,4 @@
 mod symmetry;
-pub use symmetry::{analyze_symmetry, SymmetryInfo, niggli_reduce};
+pub use symmetry::{analyze_symmetry, SymmetryInfo};
 
 pub mod moyo_wrapper;
