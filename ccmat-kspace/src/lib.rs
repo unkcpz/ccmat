@@ -817,7 +817,9 @@ mod tests {
 
         let _ = find_path(&s, 1e-5, 1e-7);
 
-        assert!(logs_contain("oI lattice, but the two longest vectors B and C have almost the same length"));
+        assert!(logs_contain(
+            "oI lattice, but the two longest vectors B and C have almost the same length"
+        ));
     }
 
     #[traced_test]

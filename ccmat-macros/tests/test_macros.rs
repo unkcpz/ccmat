@@ -9,7 +9,10 @@ macro_rules! assert_eq_approx {
         if (left - right).abs() > $tol {
             panic!(
                 "assertion failed: `{} ≈ {}`, diff:  `{}`, tol: `{}`",
-                left, right, (left - right).abs(), $tol
+                left,
+                right,
+                (left - right).abs(),
+                $tol
             );
         }
     }};
