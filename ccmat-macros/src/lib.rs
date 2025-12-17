@@ -180,14 +180,12 @@ impl Parse for MatrixInput {
             } else if input.peek(Token!(,)) {
                 // allow ',' commas optionally
                 input.parse::<Token!(,)>()?;
-            } else {
-                continue;
             }
         }
 
         // after the last
         if !current_row.is_empty() {
-            rows.push(current_row)
+            rows.push(current_row);
         }
 
         if rows.len() != 3 {
