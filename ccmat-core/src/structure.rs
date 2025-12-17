@@ -19,7 +19,10 @@
  *
  */
 
+use std::ops::Add;
+
 use crate::math::{TransformationMatrix, Vector3};
+use crate::symbol_from_atomic_number;
 
 // TODO: naming convention for vars, check IUCr or cif specification
 // Give a table to compare in between different popular tools.
@@ -36,6 +39,14 @@ impl From<Angstrom> for f64 {
 impl From<f64> for Angstrom {
     fn from(value: f64) -> Self {
         Angstrom(value)
+    }
+}
+
+impl Add<Angstrom> for Angstrom {
+    type Output = Angstrom;
+
+    fn add(self, rhs: Angstrom) -> Self::Output {
+        Angstrom::from(f64::from(self) + f64::from(rhs))
     }
 }
 
@@ -110,6 +121,12 @@ impl Vector3<FracCoord> {
         let new_z = x * m[2][0] + y * m[2][1] + z * m[2][2];
 
         Ok(Vector3([new_x.into(), new_y.into(), new_z.into()]))
+    }
+
+    #[must_use]
+    pub fn to_cartesian(&self, latt: &Lattice) -> Vector3<Angstrom> {
+        let (x, y, z): (f64, f64, f64) = (self[0].into(), self[1].into(), self[2].into());
+        x * latt.a() + y * latt.b() + z * latt.c()
     }
 }
 
@@ -693,7 +710,7 @@ pub struct SitesNotSet;
 /// let sites = vec![];
 /// let crystal = CrystalBuilder::new()
 ///     .with_lattice(&lattice)
-///     .with_sites(&sites)
+///     .with_sites(sites)
 ///     .build()
 ///     .unwrap();
 /// ```
@@ -727,6 +744,20 @@ impl CrystalBuilder<LatticeNotSet, SitesNotSet> {
 
 impl<S> CrystalBuilder<LatticeNotSet, S> {
     // TODO: should Lattice pass as ref?
+    //
+    /// Set the lattice for the crystal, where the lattice can be defined using `lattice_angstrom!`
+    /// macro.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ccmat_core::*;
+    /// let lattice = lattice_angstrom![
+    ///     a = (1.0, 0.0, 0.0),
+    ///     b = (0.0, 1.0, 0.0),
+    ///     c = (0.0, 0.0, 1.0),
+    /// ];
+    /// ```
     #[must_use]
     pub fn with_lattice(self, lattice: &Lattice) -> CrystalBuilder<LatticeSet, S> {
         CrystalBuilder {
@@ -742,10 +773,27 @@ impl<S> CrystalBuilder<LatticeNotSet, S> {
 }
 
 impl<L> CrystalBuilder<L, SitesNotSet> {
+    /// Set the sites for the crystal, where sites can into an iterator of sites:
+    ///
+    /// # Examples
+    /// ```
+    /// use ccmat_core::*;
+    /// let sites = sites_frac_coord![
+    ///     (0.6666666666666667, 0.3333333333333333, 0.8333333333333333), atomic_number!(In);
+    ///     (0.3333333333333333, 0.6666666666666666, 0.1666666666666666), atomic_number!(In);
+    ///     (0.0000000000000000, 0.0000000000000000, 0.4999999999999999), atomic_number!(In);
+    ///     (0.0000000000000000, 0.0000000000000000, 0.0000000000000000), atomic_number!(Hg);
+    ///     (0.6666666666666666, 0.3333333333333333, 0.3333333333333333), atomic_number!(Hg);
+    ///     (0.3333333333333333, 0.6666666666666666, 0.6666666666666666), atomic_number!(Hg);
+    /// ];
+    /// ```
     #[must_use]
-    pub fn with_sites(self, sites: &[Site]) -> CrystalBuilder<L, SitesSet> {
+    pub fn with_sites<I>(self, sites: I) -> CrystalBuilder<L, SitesSet>
+    where
+        I: IntoIterator<Item = Site>,
+    {
         let (positions, species) = sites
-            .iter()
+            .into_iter()
             .map(|atom| (atom.position, atom.specie.clone()))
             .collect();
 
@@ -810,8 +858,39 @@ impl Specie {
     pub fn atomic_number(&self) -> u8 {
         self.atomic_number
     }
+
+    #[must_use]
+    pub fn symbol(&self) -> String {
+        symbol_from_atomic_number(self.atomic_number()).expect("not a valid atomic number")
+    }
 }
 
+// TODO: would be helpful to have a macro for initialize site
+// something like: site_frac!([0.0, 0.5, 0.5], Si)
+
+/// A crystallographic site.
+///
+/// A `Site` represents an atomic position within a crystal unit cell,
+/// expressed in **fractional coordinates**, together with its chemical
+/// identity (`Specie`).
+///
+/// The `position` is given in fractional coordinates relative to the
+/// lattice vectors of the crystal. Each component typically lies in
+/// the range `[0, 1)`, but this is not enforced.
+///
+/// # Examples
+///
+/// ```
+/// use ccmat_core::*;
+/// use ccmat_core::math::Vector3;
+///
+/// let site = Site::new(
+///     Vector3([frac!(0.0), frac!(0.5), frac!(0.5)]),
+///     atomic_number!(Si),
+/// );
+///
+/// let pos = site.position();
+/// ```
 #[derive(Debug)]
 pub struct Site {
     position: Vector3<FracCoord>,
@@ -819,6 +898,9 @@ pub struct Site {
 }
 
 impl Site {
+    /// Creates a new crystallographic site.
+    ///
+    /// Returns a `Site` with the given position and species.
     #[must_use]
     pub fn new(position: Vector3<FracCoord>, atomic_number: u8) -> Self {
         Site {
@@ -827,6 +909,9 @@ impl Site {
         }
     }
 
+    /// Returns the fractional position of the site.
+    ///
+    /// The returned vector is expressed in fractional coordinates with respect to the crystal lattice.
     #[must_use]
     pub fn position(&self) -> Vector3<FracCoord> {
         self.position
@@ -842,7 +927,7 @@ impl Site {
 // TODO: not yet generic, but for 3D only at the moment, generalize when doing 2D and 1D
 // in prototype, this struct include as much information as possible. may need to be generic.
 // use rust's type system to check the problem of frac coordinates and direct coordinates.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Crystal {
     lattice: Lattice,
     positions: Vec<Vector3<FracCoord>>,
@@ -870,6 +955,15 @@ impl Crystal {
     pub fn positions(&self) -> Vec<Vector3<FracCoord>> {
         // TODO: avoid clone in readonly?
         self.positions.clone()
+    }
+
+    #[must_use]
+    pub fn cartesian_positions(&self) -> Vec<Vector3<Angstrom>> {
+        // TODO: avoid clone in readonly?
+        self.positions
+            .iter()
+            .map(|p| p.to_cartesian(&self.lattice()))
+            .collect()
     }
 
     #[must_use]
@@ -991,7 +1085,7 @@ mod tests {
         ];
         let crystal = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(&sites)
+            .with_sites(sites)
             .build()
             .unwrap();
 

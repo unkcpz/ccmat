@@ -189,7 +189,7 @@ impl From<moyo_wrapper::Cell> for Crystal {
         // to be valid, otherwise it is a bug.
         CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(&sites)
+            .with_sites(sites)
             .build_uncheck()
     }
 }
@@ -219,7 +219,7 @@ mod tests {
         ];
         let crystal = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(&sites)
+            .with_sites(sites)
             .build()
             .unwrap();
 

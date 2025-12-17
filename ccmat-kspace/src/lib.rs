@@ -174,7 +174,7 @@ fn find_primitive_hpkot(
 
     let crystal = CrystalBuilder::new()
         .with_lattice(&lattice_priv)
-        .with_sites(&sites)
+        .with_sites(sites)
         .build()?;
     Ok((crystal, tp, mapping))
 }
@@ -591,7 +591,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(&sites)
+            .with_sites(sites)
             .build()
             .unwrap();
 
@@ -625,7 +625,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(&sites)
+            .with_sites(sites)
             .build()
             .unwrap();
 
@@ -676,7 +676,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(&sites)
+            .with_sites(sites)
             .build()
             .unwrap();
 
@@ -701,7 +701,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(&sites)
+            .with_sites(sites)
             .build()
             .unwrap();
 
@@ -732,7 +732,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(&sites)
+            .with_sites(sites)
             .build()
             .unwrap();
 
@@ -782,7 +782,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(&sites)
+            .with_sites(sites)
             .build()
             .unwrap();
 
@@ -808,7 +808,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(&sites)
+            .with_sites(sites)
             .build()
             .unwrap();
 
@@ -840,7 +840,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(&sites)
+            .with_sites(sites)
             .build()
             .unwrap();
 
@@ -869,7 +869,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(&sites)
+            .with_sites(sites)
             .build()
             .unwrap();
 
