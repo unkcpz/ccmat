@@ -356,6 +356,37 @@ impl Lattice {
         Lattice { a, b, c }
     }
 
+    /// Constructs the lattice from Cartesian lattice vectors expressed in angstroms.
+    ///
+    /// The input is a 3×3 array where each row represents a lattice vector
+    /// `(a, b, c)` in Cartesian coordinates, with components given in angstroms.
+    /// Each component is converted into the internal `Angstrom` unit type.
+    ///
+    /// # Parameters
+    ///
+    /// - `latt`: A 3×3 array of lattice vectors in angstroms.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use ccmat_core::Lattice;
+    ///
+    /// let latt = [
+    ///     [5.43, 0.0, 0.0],
+    ///     [0.0, 5.43, 0.0],
+    ///     [0.0, 0.0, 5.43],
+    /// ];
+    ///
+    /// let latt = Lattice::from_angstroms(latt);
+    /// ```
+    #[must_use]
+    pub fn from_angstroms(latt: [[f64; 3]; 3]) -> Self {
+        let a: Vector3<Angstrom> = Vector3(latt[0].map(Angstrom::from));
+        let b: Vector3<Angstrom> = Vector3(latt[1].map(Angstrom::from));
+        let c: Vector3<Angstrom> = Vector3(latt[2].map(Angstrom::from));
+        Self { a, b, c }
+    }
+
     #[must_use]
     pub fn a(&self) -> Vector3<Angstrom> {
         self.a
@@ -918,6 +949,12 @@ impl Site {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Molecule {
+    positions: Vec<Vector3<Angstrom>>,
+    species: Vec<Specie>,
+}
+
 // Crystal is the public API so should be align with the real world convention.
 // I did not expose the data structure for crystal directly but the builder.
 // Internally fileds data structures are private to keep API stable.
@@ -935,6 +972,7 @@ pub struct Crystal {
 }
 
 impl Crystal {
+    // XXX: is this method redundant??
     #[must_use]
     pub fn builder() -> CrystalBuilder<LatticeNotSet, SitesNotSet> {
         CrystalBuilder::new()

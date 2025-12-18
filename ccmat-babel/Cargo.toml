@@ -11,4 +11,6 @@ keywords.workspace = true
 
 [dependencies]
 ccmat-core = { path="../ccmat-core" }
+# extxyz = { git = "https://github.com/extxyz/extxyz-ng/", version = "0.1.0", branch = "api-rust-extxyz" }
+extxyz = { path ="../../extxyz-ng/extxyz/" }
 
