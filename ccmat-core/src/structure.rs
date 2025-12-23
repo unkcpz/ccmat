@@ -1116,9 +1116,16 @@ pub struct Molecule {
 }
 
 #[derive(Debug)]
-struct MoleculeBuilder<SiteSetState> {
+pub struct MoleculeBuilder<SiteSetState> {
     molecule: Molecule,
     _sites: std::marker::PhantomData<SiteSetState>,
+}
+
+impl MoleculeBuilder<SitesNotSet> {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 impl Default for MoleculeBuilder<SitesNotSet> {

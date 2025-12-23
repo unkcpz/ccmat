@@ -2,7 +2,7 @@ use std::io::BufRead;
 
 use ccmat_core::{
     atomic_number_from_symbol, math::Vector3, Angstrom, Crystal, CrystalBuilder, Lattice, Molecule,
-    SiteCartesian,
+    MoleculeBuilder, SiteCartesian,
 };
 
 #[derive(Debug)]
@@ -127,7 +127,14 @@ impl TryFrom<extxyz::Frame> for Structure {
             }
         } else {
             // molecule
-            todo!()
+            let mol = MoleculeBuilder::new()
+                .with_sites(sites_cart)
+                .build()
+                .map_err(|err| ParseError::ConvertFailed {
+                    message: format!("cannot build the molecule, {err}"),
+                })?;
+
+            Ok(Structure::Molecule(mol))
         }
     }
 }
@@ -152,4 +159,15 @@ where
         }
         _ => unimplemented!(),
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_crystal_default() {}
+
+    #[test]
+    fn test_parse_mol_default() {}
 }
