@@ -54,6 +54,14 @@ impl Add<Angstrom> for Angstrom {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct InvAngstrom(pub f64);
 
+impl Add<InvAngstrom> for InvAngstrom {
+    type Output = InvAngstrom;
+
+    fn add(self, rhs: InvAngstrom) -> Self::Output {
+        InvAngstrom::from(f64::from(self) + f64::from(rhs))
+    }
+}
+
 impl From<InvAngstrom> for f64 {
     fn from(value: InvAngstrom) -> Self {
         value.0
@@ -124,9 +132,30 @@ impl Vector3<FracCoord> {
     }
 
     #[must_use]
-    pub fn to_cartesian(&self, latt: &Lattice) -> Vector3<Angstrom> {
+    pub fn into_cartesian(&self, latt: &Lattice) -> Vector3<Angstrom> {
         let (x, y, z): (f64, f64, f64) = (self[0].into(), self[1].into(), self[2].into());
         x * latt.a() + y * latt.b() + z * latt.c()
+    }
+}
+
+impl Vector3<Angstrom> {
+    #[must_use]
+    pub fn into_fraction(&self, latt: &Lattice) -> Vector3<FracCoord> {
+        // use reciprocal to avoid redo the inverse etc. might be less intuitive
+        let recip = latt.reciprocal();
+
+        // Angstrom * InvAngstrom -> FracCoord
+        let coord: Vector3<f64> = Vector3([self[0].into(), self[1].into(), self[2].into()]);
+        let a_star = Vector3(recip.a_star().map(f64::from));
+        let b_star = Vector3(recip.b_star().map(f64::from));
+        let c_star = Vector3(recip.c_star().map(f64::from));
+
+        let factor = 1.0 / (2.0 * std::f64::consts::PI);
+        let x = factor * dot(&coord, &a_star);
+        let y = factor * dot(&coord, &b_star);
+        let z = factor * dot(&coord, &c_star);
+
+        Vector3([FracCoord::from(x), FracCoord::from(y), FracCoord::from(z)])
     }
 }
 
@@ -146,7 +175,16 @@ macro_rules! frac {
     }};
 }
 
-/// macro to set the sites
+/// `angstrom!` macro to create `Angstrom`.
+#[macro_export]
+macro_rules! angstrom {
+    ($x:expr) => {{
+        let cart_coord = $crate::Angstrom($x);
+        cart_coord
+    }};
+}
+
+/// macro to set the sites (in fraction coordinate)
 ///
 /// # Examples
 ///
@@ -169,11 +207,48 @@ macro_rules! sites_frac_coord {
     ) => {{
         let sites = vec![
             $(
-                $crate::Site::new(
+                $crate::SiteFraction::new(
                     $crate::math::Vector3::<$crate::FracCoord>([
                         $crate::frac!($x),
                         $crate::frac!($y),
                         $crate::frac!($z),
+                    ]),
+                    $kind,
+                )
+            ),+
+        ];
+        sites
+    }};
+}
+
+/// macro to set the sites (in cartesian coordinate in the unit of angstrom)
+///
+/// # Examples
+///
+/// ```
+/// use ccmat_core::sites_cart_coord;
+///
+/// let _ = sites_cart_coord![
+///     (0.0, 0.0, 0.0), 8;
+///     (0.0, 0.0, 3.12), 8;
+/// ];
+/// ```
+#[macro_export]
+macro_rules! sites_cart_coord {
+    () => {
+        Vec::new()
+    };
+    ( $(
+        ($x:expr,$y:expr,$z:expr), $kind:expr
+      );+ $(;)?
+    ) => {{
+        let sites = vec![
+            $(
+                $crate::SiteCartesian::new(
+                    $crate::math::Vector3::<$crate::Angstrom>([
+                        $crate::angstrom!($x),
+                        $crate::angstrom!($y),
+                        $crate::angstrom!($z),
                     ]),
                     $kind,
                 )
@@ -710,6 +785,19 @@ impl LatticeReciprocal {
 }
 
 #[derive(Debug)]
+pub struct MoleculeValidateError {
+    message: String,
+}
+
+impl std::fmt::Display for MoleculeValidateError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for MoleculeValidateError {}
+
+#[derive(Debug)]
 pub struct CrystalValidateError {
     message: String,
 }
@@ -741,7 +829,7 @@ pub struct SitesNotSet;
 /// let sites = vec![];
 /// let crystal = CrystalBuilder::new()
 ///     .with_lattice(&lattice)
-///     .with_sites(sites)
+///     .with_frac_sites(sites)
 ///     .build()
 ///     .unwrap();
 /// ```
@@ -804,7 +892,7 @@ impl<S> CrystalBuilder<LatticeNotSet, S> {
 }
 
 impl<L> CrystalBuilder<L, SitesNotSet> {
-    /// Set the sites for the crystal, where sites can into an iterator of sites:
+    /// Set the sites (in fraction coordinate) for the crystal, where sites can into an iterator of sites:
     ///
     /// # Examples
     /// ```
@@ -819,13 +907,58 @@ impl<L> CrystalBuilder<L, SitesNotSet> {
     /// ];
     /// ```
     #[must_use]
-    pub fn with_sites<I>(self, sites: I) -> CrystalBuilder<L, SitesSet>
+    pub fn with_frac_sites<I>(self, sites: I) -> CrystalBuilder<L, SitesSet>
     where
-        I: IntoIterator<Item = Site>,
+        I: IntoIterator<Item = SiteFraction>,
     {
         let (positions, species) = sites
             .into_iter()
             .map(|atom| (atom.position, atom.specie.clone()))
+            .collect();
+
+        CrystalBuilder {
+            crystal: Crystal {
+                positions,
+                species,
+                ..self.crystal
+            },
+            _lattice: std::marker::PhantomData,
+            _sites: std::marker::PhantomData,
+        }
+    }
+}
+
+impl CrystalBuilder<LatticeSet, SitesNotSet> {
+    /// Different from `with_frac_sites`, the `with_cart_sites` can only be called after `with_lattice`
+    /// to set lattice first.
+    ///
+    /// Set the sites (in cartesian coordinate) for the crystal, where sites can into an iterator of sites:
+    ///
+    /// # Examples
+    /// ```
+    /// use ccmat_core::*;
+    /// let sites = sites_frac_coord![
+    ///     (0.6666666666666667, 0.3333333333333333, 0.8333333333333333), atomic_number!(In);
+    ///     (0.3333333333333333, 0.6666666666666666, 0.1666666666666666), atomic_number!(In);
+    ///     (0.0000000000000000, 0.0000000000000000, 0.4999999999999999), atomic_number!(In);
+    ///     (0.0000000000000000, 0.0000000000000000, 0.0000000000000000), atomic_number!(Hg);
+    ///     (0.6666666666666666, 0.3333333333333333, 0.3333333333333333), atomic_number!(Hg);
+    ///     (0.3333333333333333, 0.6666666666666666, 0.6666666666666666), atomic_number!(Hg);
+    /// ];
+    /// ```
+    #[must_use]
+    pub fn with_cart_sites<I>(self, sites: I) -> CrystalBuilder<LatticeSet, SitesSet>
+    where
+        I: IntoIterator<Item = SiteCartesian>,
+    {
+        let latt = self.crystal.lattice();
+        let (positions, species) = sites
+            .into_iter()
+            .map(|site| {
+                let pos_cart = site.position;
+                let pos = pos_cart.into_fraction(&latt);
+                (pos, site.specie)
+            })
             .collect();
 
         CrystalBuilder {
@@ -901,7 +1034,7 @@ impl Specie {
 
 /// A crystallographic site.
 ///
-/// A `Site` represents an atomic position within a crystal unit cell,
+/// A `SiteFraction` represents an atomic position within a crystal unit cell,
 /// expressed in **fractional coordinates**, together with its chemical
 /// identity (`Specie`).
 ///
@@ -915,7 +1048,7 @@ impl Specie {
 /// use ccmat_core::*;
 /// use ccmat_core::math::Vector3;
 ///
-/// let site = Site::new(
+/// let site = SiteFraction::new(
 ///     Vector3([frac!(0.0), frac!(0.5), frac!(0.5)]),
 ///     atomic_number!(Si),
 /// );
@@ -923,18 +1056,18 @@ impl Specie {
 /// let pos = site.position();
 /// ```
 #[derive(Debug)]
-pub struct Site {
+pub struct SiteFraction {
     position: Vector3<FracCoord>,
     specie: Specie,
 }
 
-impl Site {
+impl SiteFraction {
     /// Creates a new crystallographic site.
     ///
-    /// Returns a `Site` with the given position and species.
+    /// Returns a `SiteFraction` with the given position and species.
     #[must_use]
     pub fn new(position: Vector3<FracCoord>, atomic_number: u8) -> Self {
-        Site {
+        SiteFraction {
             position,
             specie: Specie::new(atomic_number),
         }
@@ -949,10 +1082,133 @@ impl Site {
     }
 }
 
+#[derive(Debug)]
+pub struct SiteCartesian {
+    position: Vector3<Angstrom>,
+    specie: Specie,
+}
+
+impl SiteCartesian {
+    /// Creates a new crystallographic site.
+    ///
+    /// Returns a `SiteCartesian` with the given position and species.
+    #[must_use]
+    pub fn new(position: Vector3<Angstrom>, atomic_number: u8) -> Self {
+        SiteCartesian {
+            position,
+            specie: Specie::new(atomic_number),
+        }
+    }
+
+    /// Returns the cartesian position of the site.
+    ///
+    /// The returned vector is expressed in cartesian coordinates (in Angstrom) with respect to the crystal lattice.
+    #[must_use]
+    pub fn position(&self) -> Vector3<Angstrom> {
+        self.position
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Molecule {
     positions: Vec<Vector3<Angstrom>>,
     species: Vec<Specie>,
+}
+
+#[derive(Debug)]
+struct MoleculeBuilder<SiteSetState> {
+    molecule: Molecule,
+    _sites: std::marker::PhantomData<SiteSetState>,
+}
+
+impl Default for MoleculeBuilder<SitesNotSet> {
+    fn default() -> Self {
+        Self {
+            molecule: Molecule {
+                positions: vec![],
+                species: vec![],
+            },
+            _sites: std::marker::PhantomData,
+        }
+    }
+}
+
+impl MoleculeBuilder<SitesNotSet> {
+    /// Set the sites (in cartesian coordinate) for the molecue, where sites can into an iterator of sites:
+    ///
+    /// # Examples
+    /// ```
+    /// use ccmat_core::*;
+    ///
+    /// let sites = sites_cart_coord![
+    ///     (2.0, 3.568, 0.67), atomic_number!(In);
+    ///     (0.78, 0.6677, 0.0989), atomic_number!(Hg);
+    /// ];
+    /// ```
+    #[must_use]
+    #[allow(clippy::unused_self)]
+    pub fn with_sites<I>(self, sites: I) -> MoleculeBuilder<SitesSet>
+    where
+        I: IntoIterator<Item = SiteCartesian>,
+    {
+        let (positions, species) = sites
+            .into_iter()
+            .map(|atom| (atom.position, atom.specie.clone()))
+            .collect();
+
+        MoleculeBuilder {
+            molecule: Molecule { positions, species },
+            _sites: std::marker::PhantomData,
+        }
+    }
+}
+
+impl MoleculeBuilder<SitesSet> {
+    fn validate(&self) -> Result<(), MoleculeValidateError> {
+        // TODO: call validate
+        if !self.molecule.positions.len() == self.molecule.species.len() {
+            return Err(MoleculeValidateError {
+                message: "molecule valid failed".to_string(),
+            });
+        }
+        Ok(())
+    }
+
+    // build without runtime validation this is for proc macro which valid in compile time.
+    // It is also used inside crate where the crystal is known to be valid.
+    #[must_use]
+    pub fn build_uncheck(self) -> Molecule {
+        debug_assert!(self.molecule.positions.len() == self.molecule.species.len());
+
+        self.molecule
+    }
+
+    /// build and validate the it is a valid molecule.
+    /// At the moment only validate the size(positions) == size(numbers)
+    ///
+    /// # Errors
+    /// ??
+    pub fn build(self) -> Result<Molecule, MoleculeValidateError> {
+        self.validate()?;
+
+        let mol = self.build_uncheck();
+
+        Ok(mol)
+    }
+}
+
+impl Molecule {
+    /// vec of positions in Cartesian coordinate
+    // XXX: I may need a view_positions which return ref, not take ownership
+    #[must_use]
+    pub fn positions(&self) -> Vec<Vector3<Angstrom>> {
+        self.positions.clone()
+    }
+
+    #[must_use]
+    pub fn species(&self) -> &[Specie] {
+        &self.species
+    }
 }
 
 // Crystal is the public API so should be align with the real world convention.
@@ -989,18 +1245,20 @@ impl Crystal {
         self.lattice().reciprocal()
     }
 
+    /// vec of positions in fractional coordinate
     #[must_use]
     pub fn positions(&self) -> Vec<Vector3<FracCoord>> {
         // TODO: avoid clone in readonly?
         self.positions.clone()
     }
 
+    /// vec of positions in Cartesian coordinate
     #[must_use]
-    pub fn cartesian_positions(&self) -> Vec<Vector3<Angstrom>> {
+    pub fn positions_cartisian(&self) -> Vec<Vector3<Angstrom>> {
         // TODO: avoid clone in readonly?
         self.positions
             .iter()
-            .map(|p| p.to_cartesian(&self.lattice()))
+            .map(|p| p.into_cartesian(&self.lattice()))
             .collect()
     }
 
@@ -1014,6 +1272,8 @@ impl Crystal {
         self.lattice.volume()
     }
 
+    /// For positions in fraction coordinates, wrap the positions in the cell.
+    /// Because there is periodic in the crystal system.
     pub fn wrap_frac_positions(&mut self) {
         for p in &mut self.positions {
             let p_ = p.map(|i| FracCoord::from(f64::from(i) - f64::from(i).floor()));
@@ -1074,7 +1334,7 @@ mod tests {
 
     #[test]
     fn macro_sites_frac() {
-        let _: Vec<Site> = sites_frac_coord![];
+        let _: Vec<SiteFraction> = sites_frac_coord![];
         let _ = sites_frac_coord![
             (0.0, 0.0, 0.0), 8;
             (0.0, 0.0, 0.5), 8;
@@ -1123,11 +1383,31 @@ mod tests {
         ];
         let crystal = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(sites)
+            .with_frac_sites(sites)
             .build()
             .unwrap();
 
         assert_eq!(crystal.volume(), Volume(4.603 * 4.603 * 4.603));
+    }
+
+    #[test]
+    fn frac_to_cart_round_trip() {
+        let latt = lattice_angstrom![
+            // no orthogonal cell
+            a = (2.0, 0.5, 0.0),
+            b = (0.0, 3.0, 0.5),
+            c = (0.5, 0.0, 4.0),
+        ];
+
+        let pos = Vector3([
+            FracCoord::from(0.3),
+            FracCoord::from(0.1),
+            FracCoord::from(0.28),
+        ]);
+        let back_pos = pos.into_cartesian(&latt).into_fraction(&latt);
+        for i in 0..3 {
+            assert_eq_approx!(f64::from(pos[i]), f64::from(back_pos[i]));
+        }
     }
 
     #[test]
