@@ -1207,6 +1207,10 @@ impl MoleculeBuilder<SitesSet> {
 impl Molecule {
     /// vec of positions in Cartesian coordinate
     // XXX: I may need a view_positions which return ref, not take ownership
+    // XXX: is this a sound API that this is not sync with Crystal's `positions` which return frac
+    // coordinates?
+    // I am leaning to change crystal's positions to return also Angstrom and rename position ->
+    // positions_fraction.
     #[must_use]
     pub fn positions(&self) -> Vec<Vector3<Angstrom>> {
         self.positions.clone()
@@ -1301,7 +1305,7 @@ mod tests {
 
     use super::*;
 
-    // TODO: dup, move to test_utils?
+    // TODO: dup (search the same macro name in the repo), move to test_utils?
     macro_rules! assert_eq_approx {
         ($a:expr, $b:expr) => {{
             assert_eq_approx!($a, $b, 1e-12)
