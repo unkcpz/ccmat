@@ -1258,14 +1258,14 @@ impl Crystal {
 
     /// vec of positions in fractional coordinate
     #[must_use]
-    pub fn positions(&self) -> Vec<Vector3<FracCoord>> {
+    pub fn positions_fraction(&self) -> Vec<Vector3<FracCoord>> {
         // TODO: avoid clone in readonly?
         self.positions.clone()
     }
 
     /// vec of positions in Cartesian coordinate
     #[must_use]
-    pub fn positions_cartisian(&self) -> Vec<Vector3<Angstrom>> {
+    pub fn positions(&self) -> Vec<Vector3<Angstrom>> {
         // TODO: avoid clone in readonly?
         self.positions
             .iter()

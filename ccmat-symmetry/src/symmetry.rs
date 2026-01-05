@@ -131,7 +131,7 @@ impl From<&Crystal> for moyo_wrapper::Cell {
 
         // TODO: moyo need an api or macro to create positions.
         let positions = s
-            .positions()
+            .positions_fraction()
             .iter()
             .map(|p| [f64::from(p[0]), f64::from(p[1]), f64::from(p[2])])
             .collect();

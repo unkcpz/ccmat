@@ -131,7 +131,7 @@ fn find_primitive_hpkot(
     let lattice_priv = standardize_structure.lattice().change_basis_by(&tp);
 
     let (positions, species) = (
-        standardize_structure.positions(),
+        standardize_structure.positions_fraction(),
         standardize_structure.species(),
     );
 
@@ -605,8 +605,8 @@ mod tests {
         assert_eq_approx_vec3!(s_priv.lattice().b().map(f64::from), [2.0, -2.0, 2.0]);
         assert_eq_approx_vec3!(s_priv.lattice().c().map(f64::from), [2.0, 2.0, -2.0]);
 
-        assert_eq_approx_vec3!(s_priv.positions()[0].map(f64::from), [0.0, 0.0, 0.0]);
-        assert_eq_approx_vec3!(s_priv.positions()[1].map(f64::from), [0.25, 0.0, 0.25]);
+        assert_eq_approx_vec3!(s_priv.positions_fraction()[0].map(f64::from), [0.0, 0.0, 0.0]);
+        assert_eq_approx_vec3!(s_priv.positions_fraction()[1].map(f64::from), [0.25, 0.0, 0.25]);
     }
 
     // same as test above, simply to align with seekpath test
@@ -647,7 +647,7 @@ mod tests {
             [-0.37367305, 1.37367305, 0.5],
         ];
 
-        for (i, pos) in s_priv.positions().iter().enumerate() {
+        for (i, pos) in s_priv.positions_fraction().iter().enumerate() {
             assert_eq_approx_vec3!(pos.map(f64::from), expected_positions[i]);
         }
 
@@ -660,7 +660,7 @@ mod tests {
             [0.62632695, 0.37367305, 0.5],
         ];
 
-        for (i, pos) in s_priv.positions().iter().enumerate() {
+        for (i, pos) in s_priv.positions_fraction().iter().enumerate() {
             assert_eq_approx_vec3!(pos.map(f64::from), expected_positions[i]);
         }
     }

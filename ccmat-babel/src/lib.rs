@@ -234,7 +234,7 @@ mod tests {
         }
 
         // cartesian convert to frac
-        let pos_got_oxygen = c.positions()[2];
+        let pos_got_oxygen = c.positions_fraction()[2];
         let pos_expect = Vector3([
             FracCoord::from(0.25),
             FracCoord::from(0.25),
