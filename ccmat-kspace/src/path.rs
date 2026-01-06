@@ -1415,7 +1415,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(sites)
+            .with_frac_sites(sites)
             .build()
             .unwrap();
 
@@ -1445,7 +1445,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(sites)
+            .with_frac_sites(sites)
             .build()
             .unwrap();
 
@@ -1468,7 +1468,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(sites)
+            .with_frac_sites(sites)
             .build()
             .unwrap();
 

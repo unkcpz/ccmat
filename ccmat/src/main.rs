@@ -12,7 +12,7 @@ fn main() {
     ];
     let crystal = CrystalBuilder::new()
         .with_lattice(&lattice)
-        .with_sites(sites)
+        .with_frac_sites(sites)
         .build()
         .unwrap();
 

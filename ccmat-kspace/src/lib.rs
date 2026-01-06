@@ -2,7 +2,7 @@ mod path;
 
 use ccmat_core::{
     math::{approx_f64, Matrix3, TransformationMatrix, Vector3},
-    matrix_3x3, BravaisClass, Crystal, CrystalBuilder, FracCoord, Site,
+    matrix_3x3, BravaisClass, Crystal, CrystalBuilder, FracCoord, SiteFraction,
 };
 use ccmat_symmetry::{analyze_symmetry, moyo_wrapper::NiggliReduce, SymmetryInfo};
 use tracing::warn;
@@ -131,7 +131,7 @@ fn find_primitive_hpkot(
     let lattice_priv = standardize_structure.lattice().change_basis_by(&tp);
 
     let (positions, species) = (
-        standardize_structure.positions(),
+        standardize_structure.positions_fraction(),
         standardize_structure.species(),
     );
 
@@ -139,7 +139,7 @@ fn find_primitive_hpkot(
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let nvolume = inv_tp.det() as usize;
 
-    let find_position = |sites: &[Site], p: Vector3<FracCoord>| -> Option<usize> {
+    let find_position = |sites: &[SiteFraction], p: Vector3<FracCoord>| -> Option<usize> {
         sites
             .iter()
             // this is the Iter::position, return the first index of iter search,
@@ -154,7 +154,7 @@ fn find_primitive_hpkot(
             })
     };
 
-    let mut sites: Vec<Site> = Vec::with_capacity(positions.len() / nvolume);
+    let mut sites: Vec<SiteFraction> = Vec::with_capacity(positions.len() / nvolume);
     let mut mapping: Vec<usize> = Vec::with_capacity(positions.len());
     // brute forcely filter sites with duplicate position
     for (position, specie) in positions.iter().zip(species.iter()) {
@@ -165,7 +165,7 @@ fn find_primitive_hpkot(
         } else {
             let atomic_number = specie.atomic_number();
             mapping.push(sites.len());
-            sites.push(Site::new(new_position, atomic_number));
+            sites.push(SiteFraction::new(new_position, atomic_number));
         }
     }
 
@@ -174,7 +174,7 @@ fn find_primitive_hpkot(
 
     let crystal = CrystalBuilder::new()
         .with_lattice(&lattice_priv)
-        .with_sites(sites)
+        .with_frac_sites(sites)
         .build()?;
     Ok((crystal, tp, mapping))
 }
@@ -591,7 +591,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(sites)
+            .with_frac_sites(sites)
             .build()
             .unwrap();
 
@@ -605,8 +605,8 @@ mod tests {
         assert_eq_approx_vec3!(s_priv.lattice().b().map(f64::from), [2.0, -2.0, 2.0]);
         assert_eq_approx_vec3!(s_priv.lattice().c().map(f64::from), [2.0, 2.0, -2.0]);
 
-        assert_eq_approx_vec3!(s_priv.positions()[0].map(f64::from), [0.0, 0.0, 0.0]);
-        assert_eq_approx_vec3!(s_priv.positions()[1].map(f64::from), [0.25, 0.0, 0.25]);
+        assert_eq_approx_vec3!(s_priv.positions_fraction()[0].map(f64::from), [0.0, 0.0, 0.0]);
+        assert_eq_approx_vec3!(s_priv.positions_fraction()[1].map(f64::from), [0.25, 0.0, 0.25]);
     }
 
     // same as test above, simply to align with seekpath test
@@ -625,7 +625,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(sites)
+            .with_frac_sites(sites)
             .build()
             .unwrap();
 
@@ -647,7 +647,7 @@ mod tests {
             [-0.37367305, 1.37367305, 0.5],
         ];
 
-        for (i, pos) in s_priv.positions().iter().enumerate() {
+        for (i, pos) in s_priv.positions_fraction().iter().enumerate() {
             assert_eq_approx_vec3!(pos.map(f64::from), expected_positions[i]);
         }
 
@@ -660,7 +660,7 @@ mod tests {
             [0.62632695, 0.37367305, 0.5],
         ];
 
-        for (i, pos) in s_priv.positions().iter().enumerate() {
+        for (i, pos) in s_priv.positions_fraction().iter().enumerate() {
             assert_eq_approx_vec3!(pos.map(f64::from), expected_positions[i]);
         }
     }
@@ -676,7 +676,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(sites)
+            .with_frac_sites(sites)
             .build()
             .unwrap();
 
@@ -701,7 +701,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(sites)
+            .with_frac_sites(sites)
             .build()
             .unwrap();
 
@@ -732,7 +732,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(sites)
+            .with_frac_sites(sites)
             .build()
             .unwrap();
 
@@ -782,7 +782,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(sites)
+            .with_frac_sites(sites)
             .build()
             .unwrap();
 
@@ -808,7 +808,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(sites)
+            .with_frac_sites(sites)
             .build()
             .unwrap();
 
@@ -840,7 +840,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(sites)
+            .with_frac_sites(sites)
             .build()
             .unwrap();
 
@@ -869,7 +869,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(sites)
+            .with_frac_sites(sites)
             .build()
             .unwrap();
 

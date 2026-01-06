@@ -12,7 +12,9 @@ use std::borrow::Cow;
 
 use crate::moyo_wrapper::{self, MoyoError, NiggliReduce};
 use ccmat_core::math::Vector3;
-use ccmat_core::{lattice_angstrom, Basis, Crystal, CrystalBuilder, FracCoord, HasBasis, Site};
+use ccmat_core::{
+    lattice_angstrom, Basis, Crystal, CrystalBuilder, FracCoord, HasBasis, SiteFraction,
+};
 use ccmat_core::{BravaisClass, Centering};
 
 /// delegation of `moyo_wrapper` to ccmat API users.
@@ -129,7 +131,7 @@ impl From<&Crystal> for moyo_wrapper::Cell {
 
         // TODO: moyo need an api or macro to create positions.
         let positions = s
-            .positions()
+            .positions_fraction()
             .iter()
             .map(|p| [f64::from(p[0]), f64::from(p[1]), f64::from(p[2])])
             .collect();
@@ -174,14 +176,14 @@ impl From<moyo_wrapper::Cell> for Crystal {
 
         // Length are guranteed to be the same because the moyo::Cell is constructed from ccmat
         // use `into_iter` to move and avoid allocation.
-        let sites: Vec<Site> = positions
+        let sites: Vec<SiteFraction> = positions
             .iter()
             .zip(numbers)
             .map(|(pos, num)| {
                 let pos = pos.map(FracCoord::from);
                 let pos = Vector3(pos);
                 let num: u8 = (*num).try_into().expect("atomic number not in 0..128");
-                Site::new(pos, num)
+                SiteFraction::new(pos, num)
             })
             .collect();
 
@@ -189,7 +191,7 @@ impl From<moyo_wrapper::Cell> for Crystal {
         // to be valid, otherwise it is a bug.
         CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(sites)
+            .with_frac_sites(sites)
             .build_uncheck()
     }
 }
@@ -219,7 +221,7 @@ mod tests {
         ];
         let crystal = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(sites)
+            .with_frac_sites(sites)
             .build()
             .unwrap();
 
