@@ -10,7 +10,8 @@ homepage.workspace = true
 keywords.workspace = true
 
 [dependencies]
-ccmat-core = { path="../ccmat-core" }
+ccmat-core = { path = "../ccmat-core" }
 # extxyz = { git = "https://github.com/extxyz/extxyz-ng/", version = "0.1.0", branch = "api-rust-extxyz" }
-extxyz = { path ="../../extxyz-ng/extxyz/" }
+extxyz = { path = "../../extxyz-ng/extxyz/" }
+cif_parser = { package = "cif_chomper", path = "../../cif_chomper/cif_chomper/"}
 

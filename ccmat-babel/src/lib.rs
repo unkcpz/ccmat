@@ -177,7 +177,12 @@ where
             Ok(s)
         }
         "cif" => {
-            todo!()
+            let s: Structure = cif_parser::read_structure(r)
+                .map_err(|err| ParseError::ParseFailed {
+                    source: Box::new(err),
+                })?
+                .try_into()?;
+            Ok(s)
         }
         _ => unimplemented!(),
     }
