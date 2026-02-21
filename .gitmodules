@@ -1,0 +1,3 @@
+[submodule "ccmat-babel/extxyz-ng"]
+	path = ccmat-babel/extxyz-ng
+	url = https://github.com/extxyz/extxyz-ng.git
