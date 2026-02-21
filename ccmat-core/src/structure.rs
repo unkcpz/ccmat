@@ -1293,6 +1293,30 @@ impl Crystal {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum Structure {
+    Crystal(Crystal),
+    Molecule(Molecule),
+}
+
+impl Structure {
+    #[must_use]
+    pub fn species(&self) -> &[Specie] {
+        match self {
+            Structure::Crystal(c) => c.species(),
+            Structure::Molecule(m) => m.species(),
+        }
+    }
+
+    #[must_use]
+    pub fn nsites(&self) -> usize {
+        match self {
+            Structure::Crystal(c) => c.positions().len(),
+            Structure::Molecule(m) => m.positions().len(),
+        }
+    }
+}
+
 // pub fn find_primitive_spglib(
 //     crystal: &Crystal,
 // ) -> Result<(Crystal, PMatrix, InvPMatrix), Box<dyn std::error::Error + Sync + Send>> {

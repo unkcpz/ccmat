@@ -19,8 +19,8 @@ If assigned in the key, those settings can be override.
 use std::io::BufRead;
 
 use ccmat_core::{
-    atomic_number_from_symbol, math::Vector3, Angstrom, Crystal, CrystalBuilder, Lattice, Molecule,
-    MoleculeBuilder, SiteCartesian,
+    atomic_number_from_symbol, math::Vector3, Angstrom, CrystalBuilder, Lattice, MoleculeBuilder,
+    SiteCartesian, Structure,
 };
 
 #[derive(Debug)]
@@ -47,19 +47,19 @@ impl std::fmt::Display for ParseError {
     }
 }
 
-#[derive(Debug)]
-pub enum Structure {
-    Crystal(Crystal),
-    Molecule(Molecule),
+pub trait FromExtXyz: Sized {
+    type Error;
+
+    fn from_frame(frame: extxyz::Frame) -> Result<Self, Self::Error>;
 }
 
-impl TryFrom<extxyz::Frame> for Structure {
+impl FromExtXyz for ccmat_core::Structure {
     type Error = ParseError;
 
-    fn try_from(value: extxyz::Frame) -> Result<Self, Self::Error> {
-        let natoms = value.natoms();
-        let info_map = value.info();
-        let arrs_map = value.arrs();
+    fn from_frame(frame: extxyz::Frame) -> Result<Self, Self::Error> {
+        let natoms = frame.natoms();
+        let info_map = frame.info();
+        let arrs_map = frame.arrs();
 
         let species: Vec<u8> = if let Some(v) = arrs_map.get("species") {
             if let extxyz::Value::VecText(v, n) = v {
@@ -169,20 +169,20 @@ where
 {
     match ext {
         "xyz" => {
-            let s: Structure = extxyz::read_frame(r)
-                .map_err(|err| ParseError::ParseFailed {
-                    source: Box::new(err),
-                })?
-                .try_into()?;
+            let frame = extxyz::read_frame(r).map_err(|err| ParseError::ParseFailed {
+                source: Box::new(err),
+            })?;
+            let s = ccmat_core::Structure::from_frame(frame)?;
             Ok(s)
         }
         "cif" => {
-            let s: Structure = cif_parser::read_structure(r)
-                .map_err(|err| ParseError::ParseFailed {
-                    source: Box::new(err),
-                })?
-                .try_into()?;
-            Ok(s)
+            // let s: Structure = cif_parser::read_structure(r)
+            //     .map_err(|err| ParseError::ParseFailed {
+            //         source: Box::new(err),
+            //     })?
+            //     .try_into()?;
+            // Ok(s)
+            unimplemented!()
         }
         _ => unimplemented!(),
     }
