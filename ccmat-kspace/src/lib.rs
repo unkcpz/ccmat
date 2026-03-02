@@ -605,8 +605,14 @@ mod tests {
         assert_eq_approx_vec3!(s_priv.lattice().b().map(f64::from), [2.0, -2.0, 2.0]);
         assert_eq_approx_vec3!(s_priv.lattice().c().map(f64::from), [2.0, 2.0, -2.0]);
 
-        assert_eq_approx_vec3!(s_priv.positions_fraction()[0].map(f64::from), [0.0, 0.0, 0.0]);
-        assert_eq_approx_vec3!(s_priv.positions_fraction()[1].map(f64::from), [0.25, 0.0, 0.25]);
+        assert_eq_approx_vec3!(
+            s_priv.positions_fraction()[0].map(f64::from),
+            [0.0, 0.0, 0.0]
+        );
+        assert_eq_approx_vec3!(
+            s_priv.positions_fraction()[1].map(f64::from),
+            [0.25, 0.0, 0.25]
+        );
     }
 
     // same as test above, simply to align with seekpath test
