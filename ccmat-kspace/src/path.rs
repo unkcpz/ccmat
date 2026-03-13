@@ -8,8 +8,24 @@ use ccmat_core::{Angstrom, FracCoord, Rad};
 
 use crate::ExtBravaisClass;
 
+#[derive(Debug, Clone, Copy)]
+pub struct HighSymmetryPointRev {
+    hp: HighSymmetryPoint,
+    rev: bool,
+}
+
+impl std::fmt::Display for HighSymmetryPointRev {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.rev && !matches!(self.hp, HighSymmetryPoint::GAMMA) {
+            write!(f, "{}'", self.hp)
+        } else {
+            write!(f, "{}", self.hp)
+        }
+    }
+}
+
 #[allow(non_camel_case_types)]
-#[derive(Debug, Hash, Eq, PartialEq)]
+#[derive(Debug, Hash, Eq, PartialEq, Clone, Copy)]
 pub enum HighSymmetryPoint {
     A,
     A_0,
@@ -97,6 +113,127 @@ pub enum HighSymmetryPoint {
     Z,
     Z_0,
     Z_2,
+}
+
+impl std::fmt::Display for HighSymmetryPoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            HighSymmetryPoint::A => "A",
+            HighSymmetryPoint::A_0 => "A₀",
+            HighSymmetryPoint::B => "B",
+            HighSymmetryPoint::B_0 => "B₀",
+            HighSymmetryPoint::B_2 => "B₂",
+
+            HighSymmetryPoint::C => "C",
+            HighSymmetryPoint::C_0 => "C₀",
+            HighSymmetryPoint::C_2 => "C₂",
+            HighSymmetryPoint::C_4 => "C₄",
+
+            HighSymmetryPoint::D => "D",
+            HighSymmetryPoint::D_0 => "D₀",
+            HighSymmetryPoint::D_2 => "D₂",
+
+            HighSymmetryPoint::DELTA_0 => "Δ₀",
+
+            HighSymmetryPoint::E => "E",
+            HighSymmetryPoint::E_0 => "E₀",
+            HighSymmetryPoint::E_2 => "E₂",
+            HighSymmetryPoint::E_4 => "E₄",
+
+            HighSymmetryPoint::F => "F",
+            HighSymmetryPoint::F_0 => "F₀",
+            HighSymmetryPoint::F_2 => "F₂",
+            HighSymmetryPoint::F_4 => "F₄",
+
+            HighSymmetryPoint::G => "G",
+            HighSymmetryPoint::G_0 => "G₀",
+            HighSymmetryPoint::G_2 => "G₂",
+            HighSymmetryPoint::G_4 => "G₄",
+            HighSymmetryPoint::G_6 => "G₆",
+
+            HighSymmetryPoint::GAMMA => "Γ",
+
+            HighSymmetryPoint::H => "H",
+            HighSymmetryPoint::H_0 => "H₀",
+            HighSymmetryPoint::H_2 => "H₂",
+            HighSymmetryPoint::H_4 => "H₄",
+            HighSymmetryPoint::H_6 => "H₆",
+
+            HighSymmetryPoint::I => "I",
+            HighSymmetryPoint::I_2 => "I₂",
+
+            HighSymmetryPoint::J_0 => "J₀",
+
+            HighSymmetryPoint::K => "K",
+            HighSymmetryPoint::K_2 => "K₂",
+            HighSymmetryPoint::K_4 => "K₄",
+
+            HighSymmetryPoint::L => "L",
+            HighSymmetryPoint::L_0 => "L₀",
+            HighSymmetryPoint::L_2 => "L₂",
+            HighSymmetryPoint::L_4 => "L₄",
+
+            HighSymmetryPoint::LAMBDA_0 => "Λ₀",
+
+            HighSymmetryPoint::M => "M",
+            HighSymmetryPoint::M_0 => "M₀",
+            HighSymmetryPoint::M_2 => "M₂",
+            HighSymmetryPoint::M_4 => "M₄",
+            HighSymmetryPoint::M_6 => "M₆",
+            HighSymmetryPoint::M_8 => "M₈",
+
+            HighSymmetryPoint::N => "N",
+            HighSymmetryPoint::N_2 => "N₂",
+            HighSymmetryPoint::N_4 => "N₄",
+            HighSymmetryPoint::N_6 => "N₆",
+
+            HighSymmetryPoint::P => "P",
+            HighSymmetryPoint::P_0 => "P₀",
+            HighSymmetryPoint::P_2 => "P₂",
+
+            HighSymmetryPoint::Q_0 => "Q₀",
+
+            HighSymmetryPoint::R => "R",
+            HighSymmetryPoint::R_0 => "R₀",
+            HighSymmetryPoint::R_2 => "R₂",
+
+            HighSymmetryPoint::S => "S",
+            HighSymmetryPoint::S_0 => "S₀",
+            HighSymmetryPoint::S_2 => "S₂",
+            HighSymmetryPoint::S_4 => "S₄",
+            HighSymmetryPoint::S_6 => "S₆",
+
+            HighSymmetryPoint::SIGMA_0 => "Σ₀",
+
+            HighSymmetryPoint::T => "T",
+            HighSymmetryPoint::T_2 => "T₂",
+
+            HighSymmetryPoint::U => "U",
+            HighSymmetryPoint::U_0 => "U₀",
+            HighSymmetryPoint::U_2 => "U₂",
+
+            HighSymmetryPoint::V => "V",
+            HighSymmetryPoint::V_0 => "V₀",
+            HighSymmetryPoint::V_2 => "V₂",
+
+            HighSymmetryPoint::W => "W",
+            HighSymmetryPoint::W_2 => "W₂",
+
+            HighSymmetryPoint::X => "X",
+            HighSymmetryPoint::X_1 => "X₁",
+
+            HighSymmetryPoint::Y => "Y",
+            HighSymmetryPoint::Y_0 => "Y₀",
+            HighSymmetryPoint::Y_2 => "Y₂",
+            HighSymmetryPoint::Y_4 => "Y₄",
+
+            HighSymmetryPoint::Z => "Z",
+            HighSymmetryPoint::Z_0 => "Z₀",
+            HighSymmetryPoint::Z_2 => "Z₂",
+        };
+
+        write!(f, "{s}")
+    }
 }
 
 // XXX pub? in order to be tested against original python impl
@@ -239,27 +376,30 @@ pub struct KpathInfo {
 
 #[derive(Debug)]
 pub struct KpathEval {
-    path: &'static [(HighSymmetryPoint, HighSymmetryPoint)],
-    // FIXME: make it a property
-    pub points: Vec<(
-        &'static HighSymmetryPoint,
-        (FracCoord, FracCoord, FracCoord),
-    )>,
+    path: Vec<(HighSymmetryPointRev, HighSymmetryPointRev)>,
+    points: Vec<(HighSymmetryPointRev, (FracCoord, FracCoord, FracCoord))>,
+}
+
+impl KpathEval {
+    pub fn path(&self) -> &[(HighSymmetryPointRev, HighSymmetryPointRev)] {
+        &self.path
+    }
+
+    pub fn points(&self) -> &[(HighSymmetryPointRev, (FracCoord, FracCoord, FracCoord))] {
+        &self.points
+    }
 }
 
 impl std::fmt::Display for KpathEval {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "---- path ----")?;
-        for p in self.path {
-            writeln!(f, "{:?} -> {:?}", p.0, p.1)?;
+        for p in self.path.iter() {
+            writeln!(f, "{} -> {}", p.0, p.1)?;
         }
-        writeln!(f, "---- ---- ----")?;
-
         writeln!(f, "---- high symmetry points ----")?;
         for pt in &self.points {
-            writeln!(f, "{:?}: {}, {}, {}", pt.0, pt.1 .0, pt.1 .1, pt.1 .2)?;
+            writeln!(f, "{}: {}, {}, {}", pt.0, pt.1 .0, pt.1 .1, pt.1 .2)?;
         }
-        writeln!(f, "---- -------------------- ----")?;
         Ok(())
     }
 }
@@ -267,6 +407,7 @@ impl std::fmt::Display for KpathEval {
 pub(crate) fn eval(
     path_info: &KpathInfo,
     lattice_params: (Angstrom, Angstrom, Angstrom, Rad, Rad, Rad),
+    add_aug_path: bool,
 ) -> Result<KpathEval, Box<dyn std::error::Error + Send + Sync>> {
     let (a, b, c, alpha, beta, gamma) = lattice_params;
 
@@ -289,13 +430,44 @@ pub(crate) fn eval(
         let eval_y = eval_float_with_context(y.0, &context)?;
         let eval_z = eval_float_with_context(z.0, &context)?;
 
-        points.push((p, (FracCoord(eval_x), FracCoord(eval_y), FracCoord(eval_z))));
+        points.push((
+            HighSymmetryPointRev { hp: *p, rev: false },
+            (FracCoord(eval_x), FracCoord(eval_y), FracCoord(eval_z)),
+        ));
+
+        if add_aug_path && !matches!(p, HighSymmetryPoint::GAMMA) {
+            points.push((
+                HighSymmetryPointRev { hp: *p, rev: true },
+                (FracCoord(-eval_x), FracCoord(-eval_y), FracCoord(-eval_z)),
+            ));
+        }
     }
 
-    let kpath_eval = KpathEval {
-        path: path_info.path,
-        points,
-    };
+    let mut path = path_info
+        .path
+        .iter()
+        .map(|(p1, p2)| {
+            (
+                HighSymmetryPointRev {
+                    hp: *p1,
+                    rev: false,
+                },
+                HighSymmetryPointRev {
+                    hp: *p2,
+                    rev: false,
+                },
+            )
+        })
+        .collect::<Vec<_>>();
+
+    for (ps, pe) in path_info.path {
+        path.push((
+            HighSymmetryPointRev { hp: *ps, rev: true },
+            HighSymmetryPointRev { hp: *pe, rev: true },
+        ))
+    }
+
+    let kpath_eval = KpathEval { path, points };
     Ok(kpath_eval)
 }
 
@@ -407,8 +579,8 @@ static POINTS_mP1: &[(
 ];
 
 static KPARAM_mP1: &[(FracCoordExpr, FracCoordExpr)] = kparams!(
-    Y: (1 + a / c * cosbeta) / 2 / sinbeta / sinbeta,
-    N: 1/2 + Y * c * cosbeta / a,
+    Y: (1 + a / c * math::cos(beta)) / 2 / math::sin(beta) / math::sin(beta),
+    N: 1/2 + Y * c * math::cos(beta) / a,
 );
 
 pub static INFO_mP1: KpathInfo = KpathInfo {
@@ -452,10 +624,10 @@ static POINTS_mC1: &[(
     E_4: Z, -Z, 1-H,
 ];
 static KPARAM_mC1: &[(FracCoordExpr, FracCoordExpr)] = kparams!(
-    Z: (2 + a / c * cosbeta) / 4 / sinbeta / sinbeta,
-    H: 1/2 - 2 * Z * c * cosbeta / a,
-    S: 3/4 - b * b / 4 / a / a / sinbeta / sinbeta,
-    P: S - (3/4 - S) * a * cosbeta / c,
+    Z: (2 + a / c * math::cos(beta)) / 4 / math::sin(beta) / math::sin(beta),
+    H: 1/2 - 2 * Z * c * math::cos(beta) / a,
+    S: 3/4 - b * b / 4 / a / a / math::sin(beta) / math::sin(beta),
+    P: S - (3/4 - S) * a * math::cos(beta) / c,
 );
 pub static INFO_mC1: KpathInfo = KpathInfo {
     path: PATH_mC1,
@@ -496,10 +668,10 @@ static POINTS_mC2: &[(
 ];
 
 static KPARAM_mC2: &[(FracCoordExpr, FracCoordExpr)] = kparams!(
-    Z: (a * a / b / b + (1 + a / c * cosbeta) / sinbeta / sinbeta) / 4,
+    Z: (a * a / b / b + (1 + a / c * math::cos(beta)) / math::sin(beta) / math::sin(beta)) / 4,
     M: (1 + a * a / b / b) / 4,
-    D: -a * c * cosbeta / 2 / b / b,
-    X: 1/2 - 2 * Z * c * cosbeta / a,
+    D: -a * c * math::cos(beta) / 2 / b / b,
+    X: 1/2 - 2 * Z * c * math::cos(beta) / a,
     P: 1 + Z - 2 * M,
     S: X - 2 * D,
 );
@@ -547,13 +719,13 @@ static POINTS_mC3: &[(
 ];
 
 static KPARAM_mC3: &[(FracCoordExpr, FracCoordExpr)] = kparams!(
-    Z: (a * a / b / b + (1 + a / c * cosbeta) / sinbeta / sinbeta) / 4,
+    Z: (a * a / b / b + (1 + a / c * math::cos(beta)) / math::sin(beta) / math::sin(beta)) / 4,
     R: 1 - Z * b * b / a / a,
-    E: 1/2 - 2 * Z * c * cosbeta / a,
-    F: E / 2 + a * a / 4 / b / b + a * c * cosbeta / 2 / b / b,
+    E: 1/2 - 2 * Z * c * math::cos(beta) / a,
+    F: E / 2 + a * a / 4 / b / b + a * c * math::cos(beta) / 2 / b / b,
     U: 2 * F - Z,
-    W: c / 2 / a / cosbeta * (1 - 4 * U + a * a * sinbeta * sinbeta / b / b),
-    D: -1/4 + W / 2 - Z * c * cosbeta / a,
+    W: c / 2 / a / math::cos(beta) * (1 - 4 * U + a * a * math::sin(beta) * math::sin(beta) / b / b),
+    D: -1/4 + W / 2 - Z * c * math::cos(beta) / a,
 );
 pub static INFO_mC3: KpathInfo = KpathInfo {
     path: PATH_mC3,
@@ -1419,10 +1591,15 @@ mod tests {
             .build()
             .unwrap();
 
-        let kpatheval = eval(lookup(&ExtBravaisClass::aP2), s.lattice().lattice_params()).unwrap();
+        let kpatheval = eval(
+            lookup(&ExtBravaisClass::aP2),
+            s.lattice().lattice_params(),
+            false,
+        )
+        .unwrap();
         let point_R = kpatheval.points[7];
 
-        assert_eq!(point_R.0, &HighSymmetryPoint::R);
+        assert_eq!(point_R.0.hp, HighSymmetryPoint::R);
         assert_eq!(point_R.1, (FracCoord(0.5), FracCoord(0.5), FracCoord(0.5)));
     }
 
@@ -1449,7 +1626,12 @@ mod tests {
             .build()
             .unwrap();
 
-        let _ = eval(lookup(&ExtBravaisClass::hR1), s.lattice().lattice_params()).unwrap();
+        let _ = eval(
+            lookup(&ExtBravaisClass::hR1),
+            s.lattice().lattice_params(),
+            false,
+        )
+        .unwrap();
 
         // noinv
         let lattice = lattice_angstrom![
@@ -1472,6 +1654,11 @@ mod tests {
             .build()
             .unwrap();
 
-        let _ = eval(lookup(&ExtBravaisClass::hR1), s.lattice().lattice_params()).unwrap();
+        let _ = eval(
+            lookup(&ExtBravaisClass::hR1),
+            s.lattice().lattice_params(),
+            false,
+        )
+        .unwrap();
     }
 }

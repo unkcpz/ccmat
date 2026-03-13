@@ -1255,6 +1255,12 @@ pub struct Crystal {
     species: Vec<Specie>,
 }
 
+// impl std::fmt::Display for Crystal {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         todo!()
+//     }
+// }
+
 impl Crystal {
     // XXX: is this method redundant??
     #[must_use]

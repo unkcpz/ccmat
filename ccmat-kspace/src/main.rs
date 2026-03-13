@@ -1,5 +1,5 @@
 use ccmat_core::{atomic_number, lattice_angstrom, sites_frac_coord, CrystalBuilder};
-use ccmat_kspace::find_path;
+use ccmat_kspace::find_path_without_time_reversal;
 use ccmat_symmetry::{analyze_symmetry, BravaisClass};
 
 fn main() {
@@ -21,5 +21,5 @@ fn main() {
     let syminfo = analyze_symmetry(&s, 1e-5).unwrap();
     assert_eq!(syminfo.bravais_class(), BravaisClass::tI);
 
-    let _ = find_path(&s, 1e-5, 1e-7);
+    let _ = find_path_without_time_reversal(&s, 1e-5, 1e-7);
 }

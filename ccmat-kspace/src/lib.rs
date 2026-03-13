@@ -169,8 +169,7 @@ fn find_primitive_hpkot(
         }
     }
 
-    #[cfg(debug_assertions)]
-    assert_eq!(mapping.len(), positions.len());
+    debug_assert_eq!(mapping.len(), positions.len());
 
     let crystal = CrystalBuilder::new()
         .with_lattice(&lattice_priv)
@@ -267,20 +266,39 @@ fn extra_std_constrait_hpkot(
     }
 }
 
+pub fn find_path_with_time_reversal(
+    crystal: &Crystal,
+    symprec: f64,
+    threshold: f64,
+) -> Result<(&'static KpathInfo, KpathEval, Crystal), Box<dyn std::error::Error + Send + Sync>> {
+    _find_path(crystal, true, symprec, threshold)
+}
+
+pub fn find_path_without_time_reversal(
+    crystal: &Crystal,
+    symprec: f64,
+    threshold: f64,
+) -> Result<(&'static KpathInfo, KpathEval, Crystal), Box<dyn std::error::Error + Send + Sync>> {
+    _find_path(crystal, false, symprec, threshold)
+}
+
 /// # Errors
 /// ??
 ///
 /// # Panics
 /// ??
 #[allow(clippy::too_many_lines)]
-pub fn find_path(
+fn _find_path(
     crystal: &Crystal,
+    with_time_reversal: bool,
     symprec: f64,
     threshold: f64,
 ) -> Result<(&'static KpathInfo, KpathEval, Crystal), Box<dyn std::error::Error + Send + Sync>> {
     let syminfo = analyze_symmetry(crystal, symprec)?;
     let spg_number = syminfo.spg_number();
+    let has_inv = syminfo.has_inversion();
     let structure_std = syminfo.standardize_structure();
+    // dbg!(&structure_std);
     let structure_std = extra_std_constrait_hpkot(structure_std, &syminfo)?;
 
     let (structure_priv, _, _) = find_primitive_hpkot(&structure_std, &syminfo, symprec)?;
@@ -581,10 +599,11 @@ pub fn find_path(
         BravaisClass::cI => ExtBravaisClass::cI1,
     };
 
-    dbg!(&ext_bravais);
+    // If there is no inversion symmetry nor time-reversal symmetry, add additional path
+    let add_aug_path = !has_inv && !with_time_reversal;
 
     let path_info = path::lookup(&ext_bravais);
-    let path_eval = path::eval(path_info, lattice_params)?;
+    let path_eval = path::eval(path_info, lattice_params, add_aug_path)?;
 
     Ok((path_info, path_eval, structure_priv))
 }
@@ -603,7 +622,7 @@ mod tests {
     use ccmat_symmetry::SymmetryExt;
     use tracing_test::traced_test;
 
-    use crate::find_path;
+    use crate::find_path_without_time_reversal;
     use crate::find_primitive_hpkot;
     use crate::BravaisClass;
 
@@ -626,6 +645,24 @@ mod tests {
                 }
             }
         };
+    }
+
+    macro_rules! assert_eq_approx {
+        ($a:expr, $b:expr) => {{
+            assert_eq_approx!($a, $b, 1e-12)
+        }};
+        ($a:expr, $b:expr, $tol:expr) => {{
+            let (left, right) = ($a, $b);
+            if (left - right).abs() > $tol {
+                panic!(
+                    "assertion failed: `{} ≈ {}`, diff:  `{}`, tol: `{}`",
+                    left,
+                    right,
+                    (left - right).abs(),
+                    $tol
+                );
+            }
+        }};
     }
 
     // this test is only for the purpose to align with the python test in seekpath.
@@ -767,7 +804,7 @@ mod tests {
         let syminfo = analyze_symmetry(&s, 1e-5).unwrap();
         assert_eq!(syminfo.bravais_class(), BravaisClass::tI);
 
-        let _ = find_path(&s, 1e-5, 1e-7);
+        let _ = find_path_without_time_reversal(&s, 1e-5, 1e-7);
 
         assert!(logs_contain("tI lattice, but a ~ c"));
     }
@@ -797,7 +834,7 @@ mod tests {
         let syminfo = analyze_symmetry(&s, 1e-5).unwrap();
         assert_eq!(syminfo.bravais_class(), BravaisClass::oF);
 
-        let _ = find_path(&s, 1e-5, 1e-7);
+        let _ = find_path_without_time_reversal(&s, 1e-5, 1e-7);
 
         assert!(logs_contain("oF lattice, but 1/a^2 ~ 1/b^2 + 1/c^2"));
     }
@@ -847,7 +884,7 @@ mod tests {
         let syminfo = analyze_symmetry(&s, 1e-5).unwrap();
         assert_eq!(syminfo.bravais_class(), BravaisClass::oF);
 
-        let _ = find_path(&s, 1e-5, 1e-7);
+        let _ = find_path_without_time_reversal(&s, 1e-5, 1e-7);
 
         assert!(logs_contain("oF lattice, but 1/c^2 ~ 1/a^2 + 1/b^2"));
     }
@@ -873,7 +910,7 @@ mod tests {
         let syminfo = analyze_symmetry(&s, 1e-5).unwrap();
         assert_eq!(syminfo.bravais_class(), BravaisClass::oI);
 
-        let _ = find_path(&s, 1e-5, 1e-7);
+        let _ = find_path_without_time_reversal(&s, 1e-5, 1e-7);
 
         assert!(logs_contain(
             "oI lattice, but the two longest vectors B and C have almost the same length"
@@ -906,7 +943,7 @@ mod tests {
         assert_eq!(syminfo.bravais_class(), BravaisClass::oS);
         assert_eq!(syminfo.spg_number(), 36);
 
-        let _ = find_path(&s, 1e-5, 1e-7);
+        let _ = find_path_without_time_reversal(&s, 1e-5, 1e-7);
 
         assert!(logs_contain("oC lattice, but a ~ b"));
     }
@@ -935,7 +972,7 @@ mod tests {
         assert_eq!(syminfo.bravais_class(), BravaisClass::oS);
         assert_eq!(syminfo.spg_number(), 38);
 
-        let _ = find_path(&s, 1e-5, 1e-7);
+        let _ = find_path_without_time_reversal(&s, 1e-5, 1e-7);
 
         assert!(logs_contain("oA lattice, but b ~ c"));
     }
@@ -1030,8 +1067,8 @@ mod tests {
         // dbg!(std_s);
         // dbg!(syminfo.bravais_class());
 
-        // XXX: find_path not need to return kinfo, it is just a lookup result,
-        let (_, keval, s_priv) = find_path(&s, 1e-5, 1e-7).unwrap();
+        // XXX: find_path_without_time_reversal not need to return kinfo, it is just a lookup result,
+        let (_, keval, s_priv) = find_path_without_time_reversal(&s, 1e-5, 1e-7).unwrap();
         let rot_m = syminfo.std_rotation();
         // dbg!(rot_m);
         // dbg!(&keval);
@@ -1042,7 +1079,7 @@ mod tests {
         let klatt_orig = s.lattice().reciprocal();
         let klatt_std = s_priv.lattice().reciprocal();
 
-        let v = keval.points[6].1;
+        let v = keval.points()[6].1;
         let v = Vector3([v.0, v.1, v.2]);
         // let res = klatt_orig.vec_from_cartesian(klatt_std.compute_cartesian(v));
         let res: Vector3<f64> = klatt_std.compute_cartesian(v).into();
@@ -1072,7 +1109,32 @@ mod tests {
         assert_eq!(syminfo.spacegroup_symbol(), "P4mm");
         assert!(!s.is_supercell(1e-5).unwrap());
 
-        // FIXME: rotate std cell, rotate the kpath coords
+        let rot_mat = matrix_3x3![
+            0, 0, 1;
+            0, 1, 0;
+            1, 0, 0;
+        ];
+        let t_mat = matrix_3x3![
+            0, 0, 1;
+            0, 1, 0;
+            1, 0, 0;
+        ];
+
+        let new_s = s
+            .linear_combine_basis(&t_mat)
+            .unwrap()
+            .rotate_basis(&rot_mat)
+            .unwrap();
+
+        let syminfo = analyze_symmetry(&new_s, 1e-5).unwrap();
+        assert_eq!(syminfo.spacegroup_symbol(), "P4mm");
+        assert!(!new_s.is_supercell(1e-5).unwrap());
+
+        let (_, keval, s_priv) = find_path_without_time_reversal(&s, 1e-5, 1e-7).unwrap();
+        let output = format!("{}", keval);
+        assert!(output.contains("X' -> R'"));
+        assert!(output.contains("Γ -> X'"));
+        assert!(output.contains("X':    -0.000000000,    -0.500000000,    -0.000000000"));
     }
 
     #[test]
@@ -1094,9 +1156,47 @@ mod tests {
         assert_eq!(syminfo.spacegroup_symbol(), "Pm");
         assert!(!s.is_supercell(1e-5).unwrap());
 
-        // FIXME: rotate std cell, rotate the kpath coords
+        let rot_mat = matrix_3x3![
+            cos(-0.4), -sin(-0.4),  0;
+            sin(-0.4),  cos(-0.4),  0;
+            0,      0,        1;
+        ];
+        let t_mat = matrix_3x3![
+            1,  0,  1;
+            2,  1,  0;
+            0,  0,  1;
+        ];
+
+        let new_s = s
+            .linear_combine_basis(&t_mat)
+            .unwrap()
+            .rotate_basis(&rot_mat)
+            .unwrap();
+
+        dbg!(&new_s);
+        let syminfo = analyze_symmetry(&new_s, 1e-5).unwrap();
+        assert_eq!(syminfo.spacegroup_symbol(), "Pm");
+        assert!(!new_s.is_supercell(1e-5).unwrap());
+
+        let (_, keval, s_priv) = find_path_without_time_reversal(&new_s, 1e-5, 1e-7).unwrap();
+        let latt_got = s_priv.lattice();
+        let latt_expect = &[[3.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 5.0]];
+
+        (0..2).for_each(|i| {
+            assert_eq_approx!(f64::from(latt_got.a()[i]), latt_expect[0][i]);
+            assert_eq_approx!(f64::from(latt_got.b()[i]), latt_expect[1][i]);
+            assert_eq_approx!(f64::from(latt_got.c()[i]), latt_expect[2][i]);
+        });
+
+        // let pos_expect = &[[0.0, 0.0, 0.0], [0.2, 0.5, 0.3]];
+        // XXX: get [0.2, -0.5, -0.3], but python side give [0.2, 0.5, 0.3] ??
+        // println!("{}", keval);
+        // dbg!(s_priv);
     }
 
     // TODO: test_nonstandard_cubic_supercell
     // TODO: test_no_symmetrization
+    // TODO: the tests above only check the kpath if is conform with the python impl,
+    // but don't have the kpoints rotate test from origin.
+    // FIXME: rotate std cell, rotate the kpath coords
 }
