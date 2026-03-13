@@ -2,9 +2,9 @@ mod path;
 
 use ccmat_core::{
     math::{approx_f64, Matrix3, TransformationMatrix, Vector3},
-    matrix_3x3, BravaisClass, Crystal, CrystalBuilder, FracCoord, SiteFraction,
+    matrix_3x3, Crystal, CrystalBuilder, FracCoord, SiteFraction,
 };
-use ccmat_symmetry::{analyze_symmetry, moyo_wrapper::NiggliReduce, SymmetryInfo};
+use ccmat_symmetry::{analyze_symmetry, BravaisClass, NiggliReduceExt, SymmetryInfo};
 use tracing::warn;
 
 use crate::path::{KpathEval, KpathInfo};
@@ -249,9 +249,9 @@ fn extra_std_constrait_hpkot(
                 ];
 
                 let mut sites: Vec<SiteFraction> = Vec::with_capacity(positions.len() / nvolume);
-                let new_lattice = s.lattice().change_basis_by(&tp);
+                let new_lattice = s.lattice().linear_combine(&tp);
                 for (position, specie) in positions.iter().zip(species.iter()) {
-                    let new_position = position.change_basis_by(&tp)?;
+                    let new_position = position.linear_combine(&tp)?;
                     sites.push(SiteFraction::new(new_position, specie.atomic_number()));
                 }
                 let crystal = CrystalBuilder::new()
@@ -302,9 +302,11 @@ pub fn find_path(
             // XXX: to get a niggli_reduce this quite cumbersome with type casting... how to
             // improve?? I should find a way that LatticeReciprocal can call niggli_reduce but
             // without the need of ccmat_core depend on moyo. I should make niggli_reduce into a trait.
-            let rlatt_niggli_reduced = structure_std.lattice().reciprocal().niggli_reduce()?;
+            let latt_reciprocal_niggli_reduced =
+                structure_std.lattice().reciprocal().niggli_reduce()?;
 
-            let (ka, kb, kc, kalpha, kbeta, kgamma) = rlatt_niggli_reduced.lattice_params();
+            let (ka, kb, kc, kalpha, kbeta, kgamma) =
+                latt_reciprocal_niggli_reduced.lattice_params();
 
             let ka: f64 = ka.into();
             let kb: f64 = kb.into();
@@ -595,10 +597,10 @@ pub fn find_path(
 #[cfg(test)]
 mod tests {
     use ccmat_core::math::Vector3;
-    use ccmat_core::{
-        analyze_symmetry, atomic_number, lattice_angstrom, sites_frac_coord, CrystalBuilder, Site,
-    };
-    use ccmat_core::{matrix_3x3, SymmetryExt};
+    use ccmat_core::matrix_3x3;
+    use ccmat_core::{atomic_number, lattice_angstrom, sites_frac_coord, CrystalBuilder};
+    use ccmat_symmetry::analyze_symmetry;
+    use ccmat_symmetry::SymmetryExt;
     use tracing_test::traced_test;
 
     use crate::find_path;
@@ -950,7 +952,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(&sites)
+            .with_frac_sites(sites)
             .build()
             .unwrap();
 
@@ -971,7 +973,8 @@ mod tests {
         ];
 
         let new_s = s
-            .linear_combine_basis(&t_mat).unwrap()
+            .linear_combine_basis(&t_mat)
+            .unwrap()
             .rotate_basis(&rot_mat)
             .unwrap();
 
@@ -991,7 +994,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(&sites)
+            .with_frac_sites(sites)
             .build()
             .unwrap();
 
@@ -1013,31 +1016,32 @@ mod tests {
         ];
 
         let s = s
-            .linear_combine_basis(&t_mat).unwrap()
+            .linear_combine_basis(&t_mat)
+            .unwrap()
             .rotate_basis(&rot_mat)
             .unwrap();
 
-        dbg!(&s);
+        // dbg!(&s);
 
         let syminfo = analyze_symmetry(&s, 1e-5).unwrap();
         assert_eq!(syminfo.spacegroup_symbol(), "Fd-3m");
         assert!(!s.is_supercell(1e-5).unwrap());
         let std_s = syminfo.standardize_structure();
-        dbg!(std_s);
-        dbg!(syminfo.bravais_class());
+        // dbg!(std_s);
+        // dbg!(syminfo.bravais_class());
 
         // XXX: find_path not need to return kinfo, it is just a lookup result,
         let (_, keval, s_priv) = find_path(&s, 1e-5, 1e-7).unwrap();
         let rot_m = syminfo.std_rotation();
         // dbg!(rot_m);
-        // dbg!(&keval); 
+        // dbg!(&keval);
         //
         // dbg!(&s_priv);
         // dbg!(syminfo.standardize_structure());
 
         let klatt_orig = s.lattice().reciprocal();
         let klatt_std = s_priv.lattice().reciprocal();
-        
+
         let v = keval.points[6].1;
         let v = Vector3([v.0, v.1, v.2]);
         // let res = klatt_orig.vec_from_cartesian(klatt_std.compute_cartesian(v));
@@ -1060,7 +1064,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(&sites)
+            .with_frac_sites(sites)
             .build()
             .unwrap();
 
@@ -1082,7 +1086,7 @@ mod tests {
 
         let s = CrystalBuilder::new()
             .with_lattice(&lattice)
-            .with_sites(&sites)
+            .with_frac_sites(sites)
             .build()
             .unwrap();
 

@@ -10,21 +10,88 @@
 
 use std::borrow::Cow;
 
-use crate::moyo_wrapper::{self, MoyoError, NiggliReduce};
-use ccmat_core::math::Vector3;
+use ccmat_core::math::{Matrix3, Vector3};
 use ccmat_core::{
     lattice_angstrom, Basis, Crystal, CrystalBuilder, FracCoord, HasBasis, SiteFraction,
 };
-use ccmat_core::{BravaisClass, Centering};
+use std::cmp;
+
+use crate::moyo_wrapper;
 
 /// delegation of `moyo_wrapper` to ccmat API users.
 pub struct SymmetryInfo {
     inner: moyo_wrapper::SymmetryInfo,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Centering {
+    P, // Primitive
+    A, // A-face centered
+    B, // B-face centered
+    C, // C-face centered
+    I, // Body centered
+    R, // Rhombohedral (obverse setting)
+    F, // Face centered
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum BravaisClass {
+    // Triclinic
+    aP,
+    // Monoclinic
+    mP,
+    mC,
+    // Orthorhombic
+    oP,
+    oS,
+    oF,
+    oI,
+    // Tetragonal
+    tP,
+    tI,
+    // Rhombohedral
+    hR,
+    // Hexagonal
+    hP,
+    // Cubic
+    cP,
+    cF,
+    cI,
+}
+
+impl std::fmt::Display for BravaisClass {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            // Triclinic
+            BravaisClass::aP => "aP",
+            // Monoclinic
+            BravaisClass::mP => "mP",
+            BravaisClass::mC => "mC",
+            // Orthorhombic
+            BravaisClass::oP => "oP",
+            BravaisClass::oS => "oS",
+            BravaisClass::oF => "oF",
+            BravaisClass::oI => "oI",
+            // Tetragonal
+            BravaisClass::tP => "tP",
+            BravaisClass::tI => "tI",
+            // Rhombohedral
+            BravaisClass::hR => "hR",
+            // Hexagonal
+            BravaisClass::hP => "hP",
+            // Cubic
+            BravaisClass::cP => "cP",
+            BravaisClass::cF => "cF",
+            BravaisClass::cI => "cI",
+        };
+        write!(f, "{s}")
+    }
+}
+
 impl From<moyo_wrapper::BravaisClass> for BravaisClass {
     fn from(bv: moyo_wrapper::BravaisClass) -> Self {
-        match bv.inner {
+        match bv.raw() {
             moyo::data::BravaisClass::aP => BravaisClass::aP,
             moyo::data::BravaisClass::mP => BravaisClass::mP,
             moyo::data::BravaisClass::mC => BravaisClass::mC,
@@ -45,7 +112,7 @@ impl From<moyo_wrapper::BravaisClass> for BravaisClass {
 
 impl From<moyo_wrapper::Centering> for Centering {
     fn from(c: moyo_wrapper::Centering) -> Self {
-        match c.inner {
+        match c.raw() {
             moyo::data::Centering::P => Centering::P,
             moyo::data::Centering::A => Centering::A,
             moyo::data::Centering::B => Centering::B,
@@ -97,80 +164,7 @@ impl SymmetryInfo {
     /// Crystal in standard structure
     #[must_use]
     pub fn standardize_structure(&self) -> Crystal {
-        self.inner.std_cell().into()
-    }
-
-    pub fn std_rotation(&self) -> Matrix3 {
-        Matrix3(self.inner.std_rotation())
-    }
-}
-
-/// analyze symmetry
-///
-/// # Errors
-/// moyo not able to analyze the symmetry of the structure.
-pub fn analyze_symmetry(
-    crystal: &Crystal,
-    symprec: f64,
-) -> Result<SymmetryInfo, Box<dyn std::error::Error + Send + Sync>> {
-    let cell = crystal.into();
-    let inner = moyo_wrapper::analyze_symmetry(&cell, symprec)?;
-    let sym_info = SymmetryInfo { inner };
-    Ok(sym_info)
-}
-
-impl<T> NiggliReduce for T
-where
-    T: HasBasis + From<Basis>,
-{
-    fn niggli_reduce(&self) -> Result<Self, MoyoError> {
-        let basis = self.basis();
-        let basis = basis.map(|v| *v);
-        let (basis, _) = moyo_wrapper::niggli_reduce(basis)?;
-        let basis: [Vector3<f64>; 3] = basis.map(Vector3);
-        Ok(Self::from(basis))
-    }
-}
-
-impl From<&Crystal> for moyo_wrapper::Cell {
-    fn from(s: &Crystal) -> Self {
-        let a = s.lattice().a().map(f64::from);
-        let b = s.lattice().b().map(f64::from);
-        let c = s.lattice().c().map(f64::from);
-        let lattice = moyo_wrapper::__macro::lattice!(a, b, c);
-
-        // TODO: moyo need an api or macro to create positions.
-        let positions = s
-            .positions_fraction()
-            .iter()
-            .map(|p| [f64::from(p[0]), f64::from(p[1]), f64::from(p[2])])
-            .collect();
-
-        let numbers = s
-            .species()
-            .iter()
-            .map(|s| s.atomic_number().into())
-            .collect();
-
-        moyo_wrapper::CellBuilder::new()
-            .with_lattice(lattice)
-            .with_positions(positions)
-            .with_numbers(numbers)
-            .build()
-    }
-}
-
-// If willing to give the ownership.
-impl From<Crystal> for moyo_wrapper::Cell {
-    fn from(s: Crystal) -> Self {
-        (&s).into()
-    }
-}
-
-// The reference version not provide, since the moyo::Cell only used internally thus
-// assume no need to hold its ownership.
-impl From<moyo_wrapper::Cell> for Crystal {
-    fn from(cell: moyo_wrapper::Cell) -> Self {
+        let cell = self.inner.std_cell();
         let a = cell.lattice().basis().0;
         let b = cell.lattice().basis().1;
         let c = cell.lattice().basis().2;
@@ -203,6 +197,123 @@ impl From<moyo_wrapper::Cell> for Crystal {
             .with_lattice(&lattice)
             .with_frac_sites(sites)
             .build_uncheck()
+    }
+
+    pub fn std_rotation(&self) -> Matrix3 {
+        Matrix3(self.inner.std_rotation())
+    }
+}
+
+/// analyze symmetry
+///
+/// # Errors
+/// moyo not able to analyze the symmetry of the structure.
+pub fn analyze_symmetry(
+    s: &Crystal,
+    symprec: f64,
+) -> Result<SymmetryInfo, Box<dyn std::error::Error + Send + Sync>> {
+    let a = s.lattice().a().map(f64::from);
+    let b = s.lattice().b().map(f64::from);
+    let c = s.lattice().c().map(f64::from);
+    let lattice = moyo_wrapper::__macro::lattice!(a, b, c);
+
+    // TODO: moyo need an api or macro to create positions.
+    let positions = s
+        .positions_fraction()
+        .iter()
+        .map(|p| [f64::from(p[0]), f64::from(p[1]), f64::from(p[2])])
+        .collect();
+
+    let numbers = s
+        .species()
+        .iter()
+        .map(|s| s.atomic_number().into())
+        .collect();
+
+    let cell = moyo_wrapper::CellBuilder::new()
+        .with_lattice(lattice)
+        .with_positions(positions)
+        .with_numbers(numbers)
+        .build();
+    let inner = moyo_wrapper::analyze_symmetry(&cell, symprec)?;
+    let sym_info = SymmetryInfo { inner };
+    Ok(sym_info)
+}
+
+// This can become a symmetry extent trait
+// TODO: this trait can be moved to moyo, as the proposed way of better interface.
+pub trait SymmetryExt {
+    /// 3x3 lattice in angstrom
+    fn lattice(&self) -> [[f64; 3]; 3];
+    /// positions in fraction
+    fn positions(&self) -> Vec<[f64; 3]>;
+    /// atomic number
+    fn numbers(&self) -> Vec<i32>;
+
+    /// # Errors
+    /// TODO: ???
+    fn is_supercell(&self, symprec: f64) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        let m = self.lattice();
+        let (a, b, c) = (m[0], m[1], m[2]);
+        let lattice = moyo_wrapper::Lattice::new(a, b, c);
+        let positions = self.positions();
+        let numbers = self.numbers();
+
+        let natoms = numbers.len();
+        let cell = moyo_wrapper::CellBuilder::new()
+            .with_lattice(lattice)
+            .with_positions(positions)
+            .with_numbers(numbers)
+            .build();
+        let sym_info = moyo_wrapper::analyze_symmetry(&cell, symprec)?;
+        let cell_priv = sym_info.prim_std_cell();
+        match natoms.cmp(&cell_priv.numbers().len()) {
+            cmp::Ordering::Less => unreachable!("primitive cell cannot have more atoms."),
+            cmp::Ordering::Equal => Ok(false),
+            cmp::Ordering::Greater => Ok(true),
+        }
+    }
+
+    // TODO: this can become the generic interface of moyo symmetry analysis call
+}
+
+impl SymmetryExt for Crystal {
+    fn lattice(&self) -> [[f64; 3]; 3] {
+        let a: [f64; 3] = self.lattice().a().map(f64::from);
+        let b: [f64; 3] = self.lattice().b().map(f64::from);
+        let c: [f64; 3] = self.lattice().c().map(f64::from);
+        [a, b, c]
+    }
+
+    fn positions(&self) -> Vec<[f64; 3]> {
+        self.positions_fraction()
+            .iter()
+            .map(|p| p.map(f64::from))
+            .collect()
+    }
+
+    fn numbers(&self) -> Vec<i32> {
+        self.species()
+            .iter()
+            .map(|s| i32::from(s.atomic_number()))
+            .collect()
+    }
+}
+
+pub trait NiggliReduceExt: Sized {
+    fn niggli_reduce(&self) -> Result<Self, Box<dyn std::error::Error + Send + Sync>>;
+}
+
+impl<T> NiggliReduceExt for T
+where
+    T: HasBasis + From<Basis>,
+{
+    fn niggli_reduce(&self) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let basis = self.basis();
+        let basis = basis.map(|v| *v);
+        let (basis, _) = moyo_wrapper::niggli_reduce(basis)?;
+        let basis: [Vector3<f64>; 3] = basis.map(Vector3);
+        Ok(Self::from(basis))
     }
 }
 

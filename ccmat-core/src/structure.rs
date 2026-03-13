@@ -22,14 +22,11 @@
 use std::ops::Add;
 
 use crate::{
-    symbol_from_atomic_number,
-    math::{TransformationMatrix, Vector3},
     math::{Matrix3, TransformationMatrix, Vector3},
     matrix_3x3,
-    moyo_wrapper::CellBuilder,
-    symmetry::niggli_reduce,
+    symbol_from_atomic_number,
+    // symmetry::niggli_reduce,
 };
-use std::cmp;
 
 // TODO: naming convention for vars, check IUCr or cif specification
 // Give a table to compare in between different popular tools.
@@ -269,72 +266,6 @@ macro_rules! sites_cart_coord {
     }};
 }
 
-#[allow(non_camel_case_types)]
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum BravaisClass {
-    // Triclinic
-    aP,
-    // Monoclinic
-    mP,
-    mC,
-    // Orthorhombic
-    oP,
-    oS,
-    oF,
-    oI,
-    // Tetragonal
-    tP,
-    tI,
-    // Rhombohedral
-    hR,
-    // Hexagonal
-    hP,
-    // Cubic
-    cP,
-    cF,
-    cI,
-}
-
-impl std::fmt::Display for BravaisClass {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            // Triclinic
-            BravaisClass::aP => "aP",
-            // Monoclinic
-            BravaisClass::mP => "mP",
-            BravaisClass::mC => "mC",
-            // Orthorhombic
-            BravaisClass::oP => "oP",
-            BravaisClass::oS => "oS",
-            BravaisClass::oF => "oF",
-            BravaisClass::oI => "oI",
-            // Tetragonal
-            BravaisClass::tP => "tP",
-            BravaisClass::tI => "tI",
-            // Rhombohedral
-            BravaisClass::hR => "hR",
-            // Hexagonal
-            BravaisClass::hP => "hP",
-            // Cubic
-            BravaisClass::cP => "cP",
-            BravaisClass::cF => "cF",
-            BravaisClass::cI => "cI",
-        };
-        write!(f, "{s}")
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Centering {
-    P, // Primitive
-    A, // A-face centered
-    B, // B-face centered
-    C, // C-face centered
-    I, // Body centered
-    R, // Rhombohedral (obverse setting)
-    F, // Face centered
-}
-
 pub type Basis = [Vector3<f64>; 3];
 
 /// Lattice
@@ -565,26 +496,30 @@ impl Lattice {
         LatticeReciprocal::new(a_star, b_star, c_star)
     }
 
-    /// Find  niggli reduce lattice.
-    ///
-    /// It using `moyo` to search the niggli reduced lattice, return the reduced lattice and the
-    /// operation matrix.
-    ///
-    /// # Errors
-    ///
-    /// Error when the search failed which happened if the lattice found is not pass the niggli lattice validation.
-    pub fn niggli_reduce(
-        &self,
-    ) -> Result<(Self, TransformationMatrix), Box<dyn std::error::Error + Send + Sync>> {
-        let (a, b, c) = (self.a.into(), self.b.into(), self.c.into());
-        let (basis, matrix) = niggli_reduce([a, b, c])?;
-        let latt = Lattice::new(basis[0].into(), basis[1].into(), basis[2].into());
-        Ok((latt, matrix))
-    }
+    // /// Find  niggli reduce lattice.
+    // ///
+    // /// It using `moyo` to search the niggli reduced lattice, return the reduced lattice and the
+    // /// operation matrix.
+    // ///
+    // /// # Errors
+    // ///
+    // /// Error when the search failed which happened if the lattice found is not pass the niggli lattice validation.
+    // pub fn niggli_reduce(
+    //     &self,
+    // ) -> Result<(Self, TransformationMatrix), Box<dyn std::error::Error + Send + Sync>> {
+    //     let (a, b, c) = (self.a.into(), self.b.into(), self.c.into());
+    //     let (basis, matrix) = niggli_reduce([a, b, c])?;
+    //     let latt = Lattice::new(basis[0].into(), basis[1].into(), basis[2].into());
+    //     Ok((latt, matrix))
+    // }
 
     // TODO: linear combination and rotate do not cover all transfarmation
     // the complete decomposition, should be svd or polar decomposition.
     // Read more to find proper APIs.
+
+    // FIXME: there is not type on the op matrix to avoid the wrong call.
+    // linear_combine acts like a' = a * M (row vector)
+    // transform acts like a' = M * a (column vector)
 
     /// Lattice is represented in the new basis
     ///
@@ -1360,11 +1295,24 @@ impl Crystal {
         &self.species
     }
 
-    pub fn sites(&self) -> Vec<Site> {
+    pub fn sites(&self) -> Vec<SiteCartesian> {
         let mut sites = vec![];
         for (position, specie) in self.positions().into_iter().zip(self.species().iter()) {
             let atomic_number = specie.atomic_number();
-            sites.push(Site::new(position, atomic_number));
+            sites.push(SiteCartesian::new(position, atomic_number));
+        }
+        sites
+    }
+
+    pub fn sites_fraction(&self) -> Vec<SiteFraction> {
+        let mut sites = vec![];
+        for (position, specie) in self
+            .positions_fraction()
+            .into_iter()
+            .zip(self.species().iter())
+        {
+            let atomic_number = specie.atomic_number();
+            sites.push(SiteFraction::new(position, atomic_number));
         }
         sites
     }
@@ -1392,17 +1340,17 @@ impl Crystal {
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let new_lattice = self.lattice().linear_combine(m);
 
-        let positions = self.positions();
+        let positions = self.positions_fraction();
         let species = self.species();
         let mut new_sites = vec![];
         for (position, specie) in positions.iter().zip(species.iter()) {
             let new_position = position.linear_combine(m)?;
             let atomic_number = specie.atomic_number();
-            new_sites.push(Site::new(new_position, atomic_number));
+            new_sites.push(SiteFraction::new(new_position, atomic_number));
         }
         let new_s = CrystalBuilder::new()
             .with_lattice(&new_lattice)
-            .with_sites(&new_sites)
+            .with_frac_sites(new_sites)
             .build()?;
         Ok(new_s)
     }
@@ -1418,7 +1366,7 @@ impl Crystal {
 
         let new_s = CrystalBuilder::new()
             .with_lattice(&new_lattice)
-            .with_sites(&self.sites())
+            .with_frac_sites(self.sites_fraction())
             .build()?;
         Ok(new_s)
     }
@@ -1453,60 +1401,6 @@ impl Structure {
 // ) -> Result<(Crystal, PMatrix, InvPMatrix), Box<dyn std::error::Error + Sync + Send>> {
 //     todo!()
 // }
-
-// This can become a symmetry extent trait
-// TODO: this trait can be moved to moyo, as the proposed way of better interface.
-pub trait SymmetryExt {
-    fn lattice(&self) -> [[f64; 3]; 3];
-    fn positions(&self) -> Vec<[f64; 3]>;
-    fn numbers(&self) -> Vec<i32>;
-
-    /// # Errors
-    /// TODO: ???
-    fn is_supercell(&self, symprec: f64) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-        let m = self.lattice();
-        let (a, b, c) = (m[0], m[1], m[2]);
-        let lattice = crate::moyo_wrapper::Lattice::new(a, b, c);
-        let positions = self.positions();
-        let numbers = self.numbers();
-
-        let natoms = numbers.len();
-        let cell = CellBuilder::new()
-            .with_lattice(lattice)
-            .with_positions(positions)
-            .with_numbers(numbers)
-            .build();
-        let sym_info = crate::moyo_wrapper::analyze_symmetry(&cell, symprec)?;
-        let cell_priv = sym_info.prim_std_cell();
-        match natoms.cmp(&cell_priv.numbers().len()) {
-            cmp::Ordering::Less => unreachable!("primitive cell cannot have more atoms."),
-            cmp::Ordering::Equal => Ok(false),
-            cmp::Ordering::Greater => Ok(true),
-        }
-    }
-
-    // TODO: this can become the generic interface of moyo symmetry analysis call
-}
-
-impl SymmetryExt for Crystal {
-    fn lattice(&self) -> [[f64; 3]; 3] {
-        let a: [f64; 3] = self.lattice().a().map(f64::from);
-        let b: [f64; 3] = self.lattice().b().map(f64::from);
-        let c: [f64; 3] = self.lattice().c().map(f64::from);
-        [a, b, c]
-    }
-
-    fn positions(&self) -> Vec<[f64; 3]> {
-        self.positions().iter().map(|p| p.map(f64::from)).collect()
-    }
-
-    fn numbers(&self) -> Vec<i32> {
-        self.species()
-            .iter()
-            .map(|s| i32::from(s.atomic_number()))
-            .collect()
-    }
-}
 
 #[cfg(test)]
 mod tests {
