@@ -1,4 +1,6 @@
 mod symmetry;
-pub use symmetry::{analyze_symmetry, SymmetryInfo};
+pub use symmetry::{
+    analyze_symmetry, BravaisClass, Centering, NiggliReduceExt, SymmetryExt, SymmetryInfo,
+};
 
-pub mod moyo_wrapper;
+mod moyo_wrapper;

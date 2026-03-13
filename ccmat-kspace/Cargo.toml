@@ -10,7 +10,6 @@ homepage.workspace = true
 keywords.workspace = true
 
 [dependencies]
-moyo = "0.7.1"
 ccmat-core = { path="../ccmat-core" }
 ccmat-symmetry = { path="../ccmat-symmetry" }
 evalexpr = "12.0.3"

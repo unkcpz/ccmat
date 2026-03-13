@@ -1,4 +1,6 @@
 /* Experiments (wishlist) on moyo APIs
+*
+ * TODO: make this ccmat_moyo crate to tidy up interface call of other sub-crates.
  *
  * Everything in this moyo_wrapper mod are expected to go to official moyo crate.
  * In experiment, this mod should only depend on official moyo crate.
@@ -28,15 +30,27 @@ use moyo::{
     MoyoDataset,
 };
 
-pub(crate) struct BravaisClass {
-    pub(crate) inner: moyo::data::BravaisClass,
+pub struct BravaisClass {
+    inner: moyo::data::BravaisClass,
 }
 
-pub(crate) struct Centering {
-    pub(crate) inner: moyo::data::Centering,
+impl BravaisClass {
+    pub fn raw(&self) -> moyo::data::BravaisClass {
+        self.inner
+    }
 }
 
-pub(crate) mod __macro {
+pub struct Centering {
+    inner: moyo::data::Centering,
+}
+
+impl Centering {
+    pub fn raw(&self) -> moyo::data::Centering {
+        self.inner
+    }
+}
+
+pub mod __macro {
     macro_rules! __vec3_angstrom {
         ([$x:expr, $y:expr, $z:expr]) => {
             [$x, $y, $z]
@@ -89,14 +103,14 @@ pub(crate) mod __macro {
     }
 }
 
-pub(crate) struct LatticeSet;
-pub(crate) struct LatticeNotSet;
-pub(crate) struct PositionsSet;
-pub(crate) struct PositionsNotSet;
-pub(crate) struct NumbersSet;
-pub(crate) struct NumbersNotSet;
+pub struct LatticeSet;
+pub struct LatticeNotSet;
+pub struct PositionsSet;
+pub struct PositionsNotSet;
+pub struct NumbersSet;
+pub struct NumbersNotSet;
 
-pub(crate) struct Lattice {
+pub struct Lattice {
     inner: moyo::base::Lattice,
 }
 
@@ -116,7 +130,7 @@ impl Lattice {
     ///
     /// I want to avoid any specific knownledge on the return type such as linear algebra data
     /// structure from `nalgebra`.
-    pub(crate) fn basis(&self) -> ([f64; 3], [f64; 3], [f64; 3]) {
+    pub fn basis(&self) -> ([f64; 3], [f64; 3], [f64; 3]) {
         let a = self.inner.basis.column(0);
         let b = self.inner.basis.column(1);
         let c = self.inner.basis.column(2);
@@ -126,7 +140,8 @@ impl Lattice {
 }
 
 /// Wrapper of `moyo::base::Cell` to explore idiomatic API design for moyo.
-pub(crate) struct Cell {
+#[derive(Debug)]
+pub struct Cell {
     inner: moyo::base::Cell,
 }
 
@@ -136,13 +151,13 @@ impl Cell {
     /// However, I have to create the wrapper type, otherwise it is tricky to do memory mapping from
     /// inner lattice to the wrapper lattice.
     /// After integrate in moyo, this can directly return a reference.
-    pub(crate) fn lattice(&self) -> Lattice {
+    pub fn lattice(&self) -> Lattice {
         Lattice {
             inner: self.inner.lattice.clone(),
         }
     }
 
-    pub(crate) fn positions(&self) -> Vec<[f64; 3]> {
+    pub fn positions(&self) -> Vec<[f64; 3]> {
         self.inner
             .positions
             .iter()
@@ -150,14 +165,14 @@ impl Cell {
             .collect()
     }
 
-    pub(crate) fn numbers(&self) -> &[i32] {
+    pub fn numbers(&self) -> &[i32] {
         &self.inner.numbers
     }
 }
 
 /// I adapt what I did for the crystal builder pattern in ccmat. The builder pattern with compile
 /// time state check can avoid mistake for data initialization.
-pub(crate) struct CellBuilder<LatticeSetState, PositionsSetState, NumbersSetState> {
+pub struct CellBuilder<LatticeSetState, PositionsSetState, NumbersSetState> {
     cell: Cell,
     _lattice: std::marker::PhantomData<LatticeSetState>,
     _positions: std::marker::PhantomData<PositionsSetState>,
@@ -189,7 +204,7 @@ impl Default for CellBuilder<LatticeNotSet, PositionsNotSet, NumbersNotSet> {
 
 impl CellBuilder<LatticeNotSet, PositionsNotSet, NumbersNotSet> {
     #[must_use]
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self::default()
     }
 }
@@ -199,7 +214,7 @@ impl<P, N> CellBuilder<LatticeNotSet, P, N> {
     /// transfer the ownership, API user need to explicitly clone in order to use lattice
     /// independent from the construct `Cell`.
     #[must_use]
-    pub(crate) fn with_lattice(self, lattice: Lattice) -> CellBuilder<LatticeSet, P, N> {
+    pub fn with_lattice(self, lattice: Lattice) -> CellBuilder<LatticeSet, P, N> {
         let inner = moyo::base::Cell {
             lattice: lattice.inner,
             ..self.cell.inner
@@ -218,10 +233,7 @@ impl<L, N> CellBuilder<L, PositionsNotSet, N> {
     /// transfer the ownership, API user need to explicitly clone in order to use positions vec
     /// independent from the construct `Cell`.
     #[must_use]
-    pub(crate) fn with_positions(
-        self,
-        positions: Vec<[f64; 3]>,
-    ) -> CellBuilder<L, PositionsSet, N> {
+    pub fn with_positions(self, positions: Vec<[f64; 3]>) -> CellBuilder<L, PositionsSet, N> {
         let positions = positions
             .into_iter()
             .map(|p| nalgebra::Vector3::new(p[0], p[1], p[2]))
@@ -244,7 +256,7 @@ impl<L, P> CellBuilder<L, P, NumbersNotSet> {
     /// transfer the ownership, API user need to explicitly clone in order to use numbers vec
     /// independent from the construct `Cell`.
     #[must_use]
-    pub(crate) fn with_numbers(self, numbers: Vec<i32>) -> CellBuilder<L, P, NumbersSet> {
+    pub fn with_numbers(self, numbers: Vec<i32>) -> CellBuilder<L, P, NumbersSet> {
         let inner = moyo::base::Cell {
             numbers,
             ..self.cell.inner
@@ -263,7 +275,7 @@ impl CellBuilder<LatticeSet, PositionsSet, NumbersSet> {
     ///
     /// I assume moyo for performance doesn't do validation on the structure. To eliminate the ill
     /// defined structure for instance where the length of positions and numbers are not equal.
-    pub(crate) fn build(self) -> Cell {
+    pub fn build(self) -> Cell {
         self.cell
     }
 }
@@ -291,12 +303,8 @@ impl From<moyo::base::MoyoError> for MoyoError {
     }
 }
 
-pub trait NiggliReduce: Sized {
-    fn niggli_reduce(&self) -> Result<Self, MoyoError>;
-}
-
 /// Wrapper of `MoyoDataset` with handy (in my opinion) APIs.
-pub(crate) struct SymmetryInfo {
+pub struct SymmetryInfo {
     inner: MoyoDataset,
 }
 
@@ -307,7 +315,7 @@ impl SymmetryInfo {
     /// Panic if space group number return from moyo is negative, i32 -> u32 fail, should be a bug
     /// then.
     #[must_use]
-    pub(crate) fn spg_number(&self) -> u32 {
+    pub fn spg_number(&self) -> u32 {
         self.inner
             .number
             .try_into()
@@ -320,7 +328,7 @@ impl SymmetryInfo {
     /// Panic if hall number return from moyo is negative, i32 -> u32 fail, should be a bug
     /// then.
     #[must_use]
-    pub(crate) fn hall_number(&self) -> u32 {
+    pub fn hall_number(&self) -> u32 {
         self.inner
             .hall_number
             .try_into()
@@ -333,7 +341,7 @@ impl SymmetryInfo {
     /// When moyo failed to get the hall symbol from the `hall_number`, shouldn't happened in ccmat
     /// since the `hall_number` is computed by moyo, if panic it is a bug.
     #[must_use]
-    pub(crate) fn bravais_class(&self) -> BravaisClass {
+    pub fn bravais_class(&self) -> BravaisClass {
         let hall_number = self.inner.hall_number;
         let hall_symbol =
             hall_symbol_entry(hall_number).expect("unable to get hall symbol from hall_number");
@@ -352,7 +360,7 @@ impl SymmetryInfo {
     /// since the `hall_number` is computed by moyo, if panic it is a bug.
     #[allow(dead_code)]
     #[must_use]
-    pub(crate) fn centring(&self) -> Centering {
+    pub fn centring(&self) -> Centering {
         let hall_number = self.inner.hall_number;
         let hall_symbol =
             hall_symbol_entry(hall_number).expect("unable to get hall symbol from hall_number");
@@ -367,25 +375,58 @@ impl SymmetryInfo {
     /// When moyo failed to get the hall symbol from the `hall_number`, shouldn't happened in ccmat
     /// since the `hall_number` is computed by moyo, if panic it is a bug.
     #[must_use]
-    pub(crate) fn hall_symbol(&self) -> Cow<'_, str> {
+    pub fn hall_symbol(&self) -> Cow<'_, str> {
         let hall_number = self.inner.hall_number;
         let hall_symbol =
             hall_symbol_entry(hall_number).expect("unable to get hall symbol from hall_number");
         Cow::Borrowed(hall_symbol.hall_symbol)
     }
 
+    /// Spage group symbol (aka "Hermann–Mauguin (International) symbol")
+    /// in short notation (e.g., "Fd-3m" for space group 227).
+    #[must_use]
+    pub fn spagegroup_symbol(&self) -> Cow<'_, str> {
+        // the international symbol given by moyo can be "P m -3 m", I remove spaces.
+        let s = &self.inner.hm_symbol;
+        if s.contains(char::is_whitespace) {
+            Cow::Owned(s.chars().filter(|c| !c.is_whitespace()).collect())
+        } else {
+            Cow::Borrowed(s)
+        }
+    }
+
     /// Check if contain inversion symmetry.
     #[must_use]
-    pub(crate) fn has_inversion(&self) -> bool {
+    pub fn has_inversion(&self) -> bool {
         let hall_symbol = self.hall_symbol();
         hall_symbol.starts_with('-')
     }
 
     /// Standard Cell
-    pub(crate) fn std_cell(&self) -> Cell {
+    pub fn std_cell(&self) -> Cell {
         Cell {
             // clone because std_cell can be not the original cell.
             inner: self.inner.std_cell.clone(),
+        }
+    }
+
+    #[must_use]
+    pub fn std_rotation(&self) -> [[f64; 3]; 3] {
+        let m = self.inner.std_rotation_matrix;
+        let row0 = m.row(0);
+        let row1 = m.row(1);
+        let row2 = m.row(2);
+        [
+            [row0[0], row0[1], row0[2]],
+            [row1[0], row1[1], row1[2]],
+            [row2[0], row2[1], row2[2]],
+        ]
+    }
+
+    /// Primitive Cell
+    pub fn prim_std_cell(&self) -> Cell {
+        Cell {
+            inner: self.inner.prim_std_cell.clone(),
         }
     }
 }
@@ -395,7 +436,7 @@ impl SymmetryInfo {
 /// # Errors
 /// ???
 // TODO: thiserror
-pub(crate) fn analyze_symmetry(
+pub fn analyze_symmetry(
     cell: &Cell,
     symprec: f64,
 ) -> Result<SymmetryInfo, Box<dyn std::error::Error + Send + Sync>> {
@@ -415,7 +456,7 @@ type Basis = [[f64; 3]; 3];
 //
 // I expect the basis has the same type as input for `Lattice::from_basis()`.
 #[allow(dead_code)]
-pub(crate) fn niggli_reduce_unchecked(basis: Basis) -> (Basis, TransformMatrix) {
+pub fn niggli_reduce_unchecked(basis: Basis) -> (Basis, TransformMatrix) {
     // NOTE: there is implementation at ``moyo::math::niggli::niggli_reduce`` but not exposed
     // I have to use Lattice::niggli_reduce`` as work around.
     let lattice = moyo::base::Lattice::from_basis(basis);
@@ -423,7 +464,7 @@ pub(crate) fn niggli_reduce_unchecked(basis: Basis) -> (Basis, TransformMatrix) 
     (lattice_converted.basis.into(), mat_trans.into())
 }
 
-pub(crate) fn niggli_reduce(basis: Basis) -> Result<(Basis, TransformMatrix), MoyoError> {
+pub fn niggli_reduce(basis: Basis) -> Result<(Basis, TransformMatrix), MoyoError> {
     let lattice = moyo::base::Lattice::from_basis(basis);
     let (lattice_converted, mat_trans) = lattice.niggli_reduce().map_err(MoyoError::from)?;
 
@@ -431,7 +472,7 @@ pub(crate) fn niggli_reduce(basis: Basis) -> Result<(Basis, TransformMatrix), Mo
 }
 
 #[allow(dead_code)]
-pub(crate) fn is_niggli_reduced(basis: Basis) -> bool {
+pub fn is_niggli_reduced(basis: Basis) -> bool {
     let lattice = moyo::base::Lattice::from_basis(basis);
     lattice.is_niggli_reduced()
 }

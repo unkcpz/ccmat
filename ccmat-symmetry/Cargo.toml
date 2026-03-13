@@ -10,7 +10,9 @@ homepage.workspace = true
 keywords.workspace = true
 
 [dependencies]
-moyo = "0.7.1"
-nalgebra = "0.34.1"
 ccmat-core = { path = "../ccmat-core" }
+
+# XXX: symmery hide moyo from other ccmat crate, the ccmat-moyo is temporarily here for experiment
+moyo = "0.7.9"
+nalgebra = "0.34.1"
 
